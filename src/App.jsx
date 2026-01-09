@@ -47,19 +47,29 @@ const LeagueHighlights = ({ data, transfers }) => {
 // MAIN APP COMPONENT
 // ==========================================
 function App() {
+  // --- STATE VARIABLES (Must be inside the function) ---
   const [standingsData, setStandingsData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [totwRows, setTotwRows] = useState({ 1: [], 2: [], 3: [], 4: [] });
+  
+  // Loading & Error States
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); 
+  
   const [leagueSize, setLeagueSize] = useState(10);
   const [leagueName, setLeagueName] = useState("");
 
+  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchAllData = async () => {
       try {
+        // !!! IMPORTANT: REPLACE THIS WITH YOUR ACTUAL RENDER URL !!!
+        const API_BASE_URL = "https://fpl-tracker-app.onrender.com"; 
+
         // 1. Fetch Bootstrap
-        const bootstrapRes = await fetch('http://localhost:5000/api/bootstrap-static');
+        const bootstrapRes = await fetch(`${API_BASE_URL}/api/bootstrap-static`);
+        if (!bootstrapRes.ok) throw new Error("Server is sleeping or unreachable. Please refresh.");
         const bData = await bootstrapRes.json();
         const activeGW = bData?.events?.find(e => e.is_current)?.id || 1;
         
@@ -69,32 +79,30 @@ function App() {
         });
 
         // 2. Fetch Live Stats
-        const liveRes = await fetch(`http://localhost:5000/api/live-data/${activeGW}`);
+        const liveRes = await fetch(`${API_BASE_URL}/api/live-data/${activeGW}`);
         const liveData = await liveRes.json();
         const liveEl = liveData?.elements || [];
 
         // 3. Fetch Standings
-        const standingsRes = await fetch('http://localhost:5000/api/league-standings');
+        const standingsRes = await fetch(`${API_BASE_URL}/api/league-standings`);
         const sData = await standingsRes.json();
         setLeagueName(sData?.league?.name || "League");
         
         const managers = sData?.standings?.results || [];
-        // Ensure chart has minimum 5 ticks or exact league size
-        const size = Math.max(managers.length, 5);
-        setLeagueSize(size); 
+        setLeagueSize(Math.max(managers.length, 5));
 
         const leaguePlayerPool = new Map();
         const allTransfers = [];
 
         // 4. Enrich Data
         const enriched = await Promise.all(managers.map(async (m) => {
-          const histRes = await fetch(`http://localhost:5000/api/manager-history/${m.entry}`);
+          const histRes = await fetch(`${API_BASE_URL}/api/manager-history/${m.entry}`);
           const history = await histRes.json();
           const chips = history?.chips || [];
           const activeChip = chips.find(c => c.event === activeGW)?.name || 'None';
 
           try {
-            const tRes = await fetch(`http://localhost:5000/api/manager-transfers/${m.entry}`);
+            const tRes = await fetch(`${API_BASE_URL}/api/manager-transfers/${m.entry}`);
             const tList = await tRes.json();
             if (Array.isArray(tList)) {
               tList.filter(t => t.event === activeGW).forEach(t => {
@@ -110,7 +118,7 @@ function App() {
             }
           } catch (e) {}
 
-          const pRes = await fetch(`http://localhost:5000/api/manager-picks/${m.entry}/${activeGW}`);
+          const pRes = await fetch(`${API_BASE_URL}/api/manager-picks/${m.entry}/${activeGW}`);
           const pData = await pRes.json();
           const picks = pData?.picks || [];
           const s11 = picks.slice(0, 11);
@@ -158,6 +166,7 @@ function App() {
           };
         }));
 
+        // Chart Logic
         const longestHistoryManager = enriched.reduce((prev, current) => 
           (prev.rawHistory.length > current.rawHistory.length) ? prev : current
         , { rawHistory: [] });
@@ -199,7 +208,11 @@ function App() {
         setStandingsData(enriched);
         setTransfers(allTransfers.sort((a, b) => b.diff - a.diff));
         setLoading(false);
-      } catch (err) { console.error(err); setLoading(false); }
+      } catch (err) { 
+        console.error(err); 
+        setError(err.message); 
+        setLoading(false); 
+      }
     };
     fetchAllData();
   }, []);
@@ -217,7 +230,8 @@ function App() {
          onError={(e) => { e.target.onerror = null; e.target.src = `https://resources.premierleague.com/premierleague/photos/players/110x140/p${photo}.png`; }} />
   );
 
-  if (loading) return <div className="loading-screen">INITIALIZING FPL TRACKER...</div>;
+  if (loading) return <div className="loading-screen">INITIALIZING FPL TRACKER...<br/><span style={{fontSize:'0.8rem', marginTop:'10px'}}>Waking up server...</span></div>;
+  if (error) return <div className="loading-screen" style={{color: '#ff005a'}}>Error: {error}<br/>(Try refreshing)</div>;
 
   return (
     <div className="app-container">
@@ -229,8 +243,10 @@ function App() {
         </div>
       </header>
       
-      {/* <LeagueHighlights data={standingsData} transfers={transfers} />
+      {/* LEAGUE HIGHLIGHTS (HIDDEN)
+        Uncomment the line below to show it again
       */}
+      {/* <LeagueHighlights data={standingsData} transfers={transfers} /> */}
 
       <section className="dashboard-section">
         <h3 className="section-title">League Standings</h3>
@@ -260,12 +276,10 @@ function App() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={chartData} 
-              margin={{ top: 10, right: 10, left: -25, bottom: 0 }} /* Adjusts width by pulling left */
+              margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
               <XAxis dataKey="gameweek" stroke="#888" tick={{fontSize: 12}} />
-              
-              {/* Force every single rank integer to appear on Y-Axis */}
               <YAxis 
                 reversed 
                 domain={[1, leagueSize]} 
@@ -274,10 +288,8 @@ function App() {
                 stroke="#888" 
                 tick={{fontSize: 12}} 
               />
-              
               <Tooltip contentStyle={{ backgroundColor: '#1e1e1e', borderColor: '#333', color: '#fff' }} />
               <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-              
               {standingsData.map((m, i) => (
                 <Line 
                   key={m.entry_name} 
