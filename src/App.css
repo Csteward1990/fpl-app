@@ -1,52 +1,44 @@
 /* =========================================
-   1. GLOBAL RESET & DARK THEME
+   1. GLOBAL DARK RESET
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&display=swap');
 
 :root {
-  /* Core Dark Mode Colors */
-  --bg-dark: #000000;       /* Deep Black Background */
-  --bg-card: #141414;       /* Dark Grey for Cards */
-  --bg-header: #1f1f1f;     /* Slightly lighter for headers */
-  
-  /* Text Colors */
+  --bg-dark: #000000;
+  --bg-card: #141414;
+  --bg-header: #202020;
   --text-primary: #ffffff;
   --text-secondary: #a0a0a0;
-  
-  /* FPL Brand Colors */
-  --accent-green: #00ff87;  /* FPL Green */
-  --accent-red: #ff005a;    /* FPL Red */
-  --accent-purple: #37003c; /* FPL Purple */
-  
-  /* Utilities */
+  --accent-green: #00ff87;
+  --accent-red: #ff005a;
+  --accent-purple: #534f54;
   --border-color: #2a2a2a;
 }
 
-body {
+html, body, #root {
+  height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
   background-color: var(--bg-dark);
   color: var(--text-primary);
   font-family: 'Montserrat', sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* =========================================
-   2. LAYOUT & CONTAINERS
+   2. LAYOUT CONTAINERS
    ========================================= */
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px;
+  background: transparent;
 }
 
-/* Main Cards (Tables/Charts) */
 .dashboard-section {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: 24px;
-  overflow: hidden;
+  background-color: transparent;
+  margin-bottom: 30px;
+  border-radius: 0;
 }
 
 .section-title {
@@ -54,65 +46,51 @@ body {
   color: var(--text-primary);
   font-family: 'Orbitron', sans-serif;
   font-size: 1rem;
-  padding: 12px 16px;
-  margin: 0;
+  padding: 12px;
   text-align: center;
-  border-bottom: 1px solid var(--border-color);
-  letter-spacing: 1px;
   text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--border-color);
+  border-bottom: none;
 }
 
 /* =========================================
-   3. HEADER BRANDING
+   3. HEADER & HIGHLIGHTS
    ========================================= */
 .main-header {
-  text-align: left;
+  text-align: center;
   margin-bottom: 30px;
   padding-top: 20px;
-  background-color: var(--bg-dark); /* Ensures header blends with background */
 }
-
 .main-header h1 {
   font-family: 'Orbitron', sans-serif;
-  font-size: 2rem;
-  font-style: italic;
-  font-weight: 1000;
+  font-size: 2.5rem;
   margin: 0 0 5px 0;
-  margin-bottom: 20px;
   color: var(--text-primary);
-  letter-spacing: 2px;
-  text-shadow: 0 0 10px rgba(0, 255, 135, 0.2); /* Subtle green glow */
+  letter-spacing: 3px;
+  text-shadow: 0 0 10px rgba(0, 255, 135, 0.2);
 }
-
 .league-label {
   color: var(--text-secondary);
-  text-align: center;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 3px;
   margin: 0;
 }
-
 .league-name {
   color: var(--text-primary);
-  text-align: center;
   font-family: 'Orbitron', sans-serif;
-  font-size: 1.2rem;
-  text-transform: uppercase;
+  font-size: 1.4rem;
   margin: 5px 0 0 0;
-  font-weight: 600;
 }
 
-/* =========================================
-   4. HIGHLIGHTS GRID
-   ========================================= */
 .highlights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
   margin-bottom: 32px;
 }
-
 .highlight-card {
   background-color: var(--bg-card);
   padding: 15px;
@@ -121,101 +99,71 @@ body {
   border: 1px solid var(--border-color);
 }
 
-.highlight-emoji { font-size: 1.8rem; margin-bottom: 6px; }
-.highlight-title { 
-  font-family: 'Orbitron', sans-serif; 
-  font-size: 0.7rem; 
-  color: var(--text-secondary); 
-  text-transform: uppercase; 
-  margin-bottom: 4px; 
-}
-.highlight-winner { 
-  font-size: 0.9rem; 
-  font-weight: 700; 
-  color: var(--accent-green); 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-}
-.highlight-impact { 
-  font-size: 0.8rem; 
-  font-weight: 600; 
-  color: var(--text-primary); 
-  margin-top: 4px; 
-}
-
 /* =========================================
-   5. DATA TABLES
+   4. TABLES
    ========================================= */
 .table-wrapper {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch; /* Smooth scroll on mobile */
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.data-table th {
-  background-color: #1a1a1a;
-  color: var(--text-secondary);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  padding: 14px 10px;
-  text-align: center;
-  border-bottom: 1px solid var(--border-color);
-  letter-spacing: 0.5px;
-}
-
-.data-table td {
-  padding: 14px 10px;
-  border-bottom: 1px solid var(--border-color);
-  text-align: center;
-  vertical-align: middle;
-  color: var(--text-primary);
-}
-
-/* Column alignment overrides */
-.data-table th:nth-child(2),
-.data-table td:nth-child(2) {
-  text-align: left;
-  padding-left: 16px;
-}
-
-/* Mobile-friendly Text Stacks */
-.cell-content { display: flex; flex-direction: column; justify-content: center; }
-.team-name { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
-.manager-name { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; font-weight: 400; }
-
-/* Status Colors */
-.val-pos { color: var(--accent-green) !important; font-weight: 700; }
-.val-neg { color: var(--accent-red) !important; font-weight: 700; }
-.val-neutral { color: var(--text-secondary); }
-
-.chip-badge { 
-  font-family: 'Orbitron', sans-serif; 
-  font-size: 0.75rem; 
-  color: var(--accent-green); 
-  background: rgba(0, 255, 135, 0.1); 
-  padding: 4px 8px; 
-  border-radius: 4px; 
-  display: inline-block;
-}
-.chip-none { color: #444; font-size: 0.75rem; }
-
-/* =========================================
-   6. CHARTS & VISUALS
-   ========================================= */
-.chart-wrapper {
-  padding: 10px;
-  height: 350px;
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 8px 8px;
   background-color: var(--bg-card);
 }
 
-/* TOTW Pitch - Dark Green Theme */
+.data-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.data-table th {
+  background-color: var(--bg-header);
+  color: white;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  padding: 15px 10px;
+  text-align: center; /* Default to Center */
+}
+
+.data-table td {
+  padding: 15px 10px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: center; /* Default to Center */
+  vertical-align: middle;
+}
+
+/* UTILITY: Force Left Align (Use this for Standings Team Name) */
+.text-left {
+  text-align: left !important;
+  padding-left: 20px !important;
+}
+
+/* Fixed Layout Columns */
+.col-team { width: 45%; }
+.col-stat { width: 18%; }
+.col-wide-stat { width: 27%; }
+
+.cell-content { display: flex; flex-direction: column; }
+.team-name { font-weight: 700; font-size: 0.75rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+.manager-name { font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+
+.val-pos { color: var(--accent-green); font-weight: 700; }
+.val-neg { color: var(--accent-red); font-weight: 700; }
+.val-neutral { color: var(--text-secondary); }
+.chip-badge { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--accent-green); background: rgba(0, 255, 135, 0.1); padding: 4px 8px; border-radius: 4px; }
+.chip-none { color: #444; font-size: 0.65rem; }
+
+/* =========================================
+   5. CHARTS & PITCH
+   ========================================= */
+.chart-wrapper {
+  padding: 10px;
+  height: 500px;
+  background-color: transparent;
+  border: none;
+}
+
 .totw-pitch {
   background: linear-gradient(180deg, #0d2e1c 0%, #05140d 100%);
   padding: 24px 10px;
@@ -226,12 +174,18 @@ body {
   gap: 20px;
   border: 1px solid #1a4a2e;
 }
-
 .pitch-row { display: flex; justify-content: center; gap: 4px; }
-.player-card { width: 75px; text-align: center; position: relative; }
-.player-photo { width: 50px; border-radius: 4px; margin: 0 auto; display: block; border: 1px solid rgba(255,255,255,0.1); }
-.player-name { font-size: 0.7rem; color: white; margin-top: 4px; font-weight: 600; text-shadow: 0 1px 2px black; }
+.player-card { width: 75px; font-size: 0.75rem;text-align: center; position: relative; }
 
+/* Image Styling */
+.player-photo {
+  width: 50px;
+  margin: 0 auto;
+  display: block;
+  clip-path: inset(2px 2px 2px 2px round 4px);
+  filter: brightness(0.95);
+  background: transparent;
+}
 .points-badge {
   position: absolute; top: -6px; right: 8px;
   background: var(--accent-green); color: black;
@@ -242,97 +196,7 @@ body {
   z-index: 5;
 }
 
-/* =========================================
-   7. UTILITIES
-   ========================================= */
 .loading-screen {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: var(--accent-green);
-  font-family: 'Orbitron', sans-serif;
-  font-size: 1.5rem;
-  background-color: var(--bg-dark);
-}
-
-/* Scrollbar Styling for Webkit */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-dark); }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
-
-/* Update the top of your App.css with this */
-html, body, #root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background-color: #000000; /* Fallback hardcoded black */
-  background-color: var(--bg-dark);
-}
-
-body {
-  color: #ffffff; /* Force white text default */
-  font-family: 'Montserrat', sans-serif;
-}
-
-/* ... [Previous CSS Content] ... */
-
-/* UPDATED IMAGE STYLING FOR DARK MODE */
-.player-photo {
-  width: 50px;
-  border-radius: 4px;
-  margin: 0 auto;
-  display: block;
-  /* Removed border: 1px solid rgba(255,255,255,0.1); */
-  
-  /* Blends jagged white edges into the dark background */
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8)) brightness(0.95);
-  
-  /* Ensures no white background if image is transparent */
-  background: transparent;
-}
-
-/* TOTW Specific */
-.totw-pitch {
-  background: linear-gradient(180deg, #0d2e1c 0%, #05140d 100%);
-  padding: 24px 10px;
-  border-radius: 8px; /* Rounded corners */
-  margin-bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  border: 1px solid #1a4a2e;
-}
-
-.player-card {
-  width: 75px; 
-  text-align: center; 
-  position: relative; 
-}
-
-/* ... [Keep all previous CSS] ... */
-
-/* UPDATED IMAGE STYLING */
-.player-photo {
-  width: 50px;
-  margin: 0 auto;
-  display: block;
-  
-  /* CROP THE WHITE EDGES */
-  /* This creates an inset rectangle that chops 2px off top/bottom/left/right */
-  clip-path: inset(2px 2px 2px 2px round 4px);
-  
-  /* Dim slightly to blend halos */
-  filter: brightness(0.95);
-  
-  background: transparent;
-}
-
-.chart-wrapper {
-  padding: 10px;
-  height: 500px; /* Increased Height */
-  background-color: transparent; /* No grey box behind chart */
-  border: none;
+  height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  color: var(--accent-green); font-family: 'Orbitron', sans-serif; font-size: 1.5rem; background-color: var(--bg-dark);
 }

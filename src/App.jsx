@@ -47,7 +47,6 @@ const LeagueHighlights = ({ data, transfers }) => {
 // MAIN APP COMPONENT
 // ==========================================
 function App() {
-  // --- STATE VARIABLES (Must be inside the function) ---
   const [standingsData, setStandingsData] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [transfers, setTransfers] = useState([]);
@@ -64,8 +63,7 @@ function App() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // !!! IMPORTANT: REPLACE THIS WITH YOUR ACTUAL RENDER URL !!!
-        const API_BASE_URL = "https://fpl-tracker-app.onrender.com"; 
+        const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         // 1. Fetch Bootstrap
         const bootstrapRes = await fetch(`${API_BASE_URL}/api/bootstrap-static`);
@@ -108,8 +106,11 @@ function App() {
               tList.filter(t => t.event === activeGW).forEach(t => {
                 const pIn = liveEl.find(el => el.id === t.element_in)?.stats?.total_points || 0;
                 const pOut = liveEl.find(el => el.id === t.element_out)?.stats?.total_points || 0;
+                
+                // --- FIX: Explicitly ensure teamName is captured ---
                 allTransfers.push({ 
                   manager: m.player_name, 
+                  teamName: m.entry_name || "Team",  // Fallback if missing
                   playerIn: pMap[t.element_in], 
                   playerOut: pMap[t.element_out], 
                   diff: pIn - pOut 
@@ -166,7 +167,6 @@ function App() {
           };
         }));
 
-        // Chart Logic
         const longestHistoryManager = enriched.reduce((prev, current) => 
           (prev.rawHistory.length > current.rawHistory.length) ? prev : current
         , { rawHistory: [] });
@@ -243,9 +243,6 @@ function App() {
         </div>
       </header>
       
-      {/* LEAGUE HIGHLIGHTS (HIDDEN)
-        Uncomment the line below to show it again
-      */}
       {/* <LeagueHighlights data={standingsData} transfers={transfers} /> */}
 
       <section className="dashboard-section">
@@ -253,7 +250,13 @@ function App() {
         <div className="table-wrapper">
           <table className="data-table">
             <thead>
-              <tr><th>Rank</th><th>Team / Manager</th><th>Chip</th><th>GW</th><th>Total</th></tr>
+              <tr>
+                <th style={{width:'8%'}}>Rank</th>
+                <th className="col-team">Team / Manager</th>
+                <th style={{width:'15%'}}>Chip</th>
+                <th className="col-stat">GW</th>
+                <th className="col-stat">Total</th>
+              </tr>
             </thead>
             <tbody>
               {standingsData.map(m => (
@@ -326,7 +329,12 @@ function App() {
         <h3 className="section-title">Clinicality Index</h3>
         <div className="table-wrapper">
           <table className="data-table">
-            <thead><tr><th>Team</th><th>xG</th><th>G</th><th>xA</th><th>A</th><th>Net</th></tr></thead>
+            <thead>
+              <tr>
+                <th className="col-team">Team</th>
+                <th>xG</th><th>G</th><th>xA</th><th>A</th><th>Net</th>
+              </tr>
+            </thead>
             <tbody>
               {standingsData.map(m => {
                 const net = (m.goals + m.assists) - (m.xg + m.xa);
@@ -343,15 +351,29 @@ function App() {
         </div>
       </section>
 
+      {/* --- UPDATED: TRANSFER IMPACT --- */}
       <section className="dashboard-section">
         <h3 className="section-title">Transfer Impact</h3>
         <div className="table-wrapper">
           <table className="data-table">
-            <thead><tr><th>Manager</th><th>IN</th><th>OUT</th><th>Diff</th></tr></thead>
+            <thead>
+              <tr>
+                {/* FIXED WIDTHS APPLIED */}
+                <th className="col-team">Team / Manager</th>
+                <th className="col-stat">IN</th>
+                <th className="col-stat">OUT</th>
+                <th className="col-stat">Diff</th>
+              </tr>
+            </thead>
             <tbody>
               {transfers.slice(0, 5).map((t, i) => (
                 <tr key={i}>
-                  <td style={{textAlign: 'left', paddingLeft:'16px', fontWeight:'700'}}>{t.manager}</td>
+                  <td style={{textAlign: 'center', paddingLeft: 0}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+                      <span style={{color: '#ffffff', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span>
+                      <span style={{color: '#a0a0a0', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span>
+                    </div>
+                  </td>
                   <td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.7rem'}}>{t.playerIn?.name}</span></div></td>
                   <td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.7rem'}}>{t.playerOut?.name}</span></div></td>
                   <td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td>
@@ -362,17 +384,41 @@ function App() {
         </div>
       </section>
 
+      {/* --- UPDATED: GW EFFICIENCY --- */}
       <section className="dashboard-section">
         <h3 className="section-title">GW Efficiency (PPM)</h3>
         <div className="table-wrapper">
           <table className="data-table">
-            <thead><tr><th>Team</th><th>GW MVP</th><th>GW LVP</th></tr></thead>
+            <thead>
+              <tr>
+                {/* FIXED WIDTHS APPLIED */}
+                <th className="col-team">Team</th>
+                <th className="col-wide-stat">GW MVP</th>
+                <th className="col-wide-stat">GW LVP</th>
+              </tr>
+            </thead>
             <tbody>
               {standingsData.map(m => (
                 <tr key={m.entry}>
                   <td>{renderTeamCell(m.entry_name, m.player_name)}</td>
-                  <td>{m.bestGWValue ? <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}><PlayerPhoto photo={m.bestGWValue.photo} width="32px" /><span className="val-pos">{m.bestGWValue.gwPPM}</span></div> : '-'}</td>
-                  <td>{m.worstGWValue ? <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', opacity:0.7}}><PlayerPhoto photo={m.worstGWValue.photo} width="32px" /><span className="val-neg">{m.worstGWValue.gwPPM}</span></div> : '-'}</td>
+                  <td style={{textAlign: 'center'}}>
+                    {m.bestGWValue ? (
+                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}>
+                        <PlayerPhoto photo={m.bestGWValue.photo} width="32px" />
+                        <span style={{fontSize:'0.7rem', fontWeight:'600'}}>{m.bestGWValue.name}</span>
+                        <span className="val-pos">{m.bestGWValue.gwPPM}</span>
+                      </div>
+                    ) : '-'}
+                  </td>
+                  <td style={{textAlign: 'center'}}>
+                    {m.worstGWValue ? (
+                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}>
+                        <PlayerPhoto photo={m.worstGWValue.photo} width="32px" />
+                        <span style={{fontSize:'0.7rem', fontWeight:'600'}}>{m.worstGWValue.name}</span>
+                        <span className="val-neg">{m.worstGWValue.gwPPM}</span>
+                      </div>
+                    ) : '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -384,7 +430,12 @@ function App() {
         <h3 className="section-title">Bonus & Discipline</h3>
         <div className="table-wrapper">
           <table className="data-table">
-            <thead><tr><th>Team</th><th>Bonus</th><th>Yellows</th><th>Reds</th></tr></thead>
+            <thead>
+              <tr>
+                <th className="col-team">Team</th>
+                <th>Bonus</th><th>Yellows</th><th>Reds</th>
+              </tr>
+            </thead>
             <tbody>
               {standingsData.map(m => (
                 <tr key={m.entry}>
