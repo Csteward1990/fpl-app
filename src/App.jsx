@@ -236,7 +236,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="main-header">
-        <h1>FPL TRACKER</h1>
+        <h1>FPL TRACKER V2</h1>
         <div className="league-meta">
           <p className="league-label">FPL League</p>
           <h2 className="league-name">{leagueName}</h2>
