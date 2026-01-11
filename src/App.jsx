@@ -136,7 +136,6 @@ function App() {
               ptsGoals: acc.ptsGoals + goalPts,
               ptsAssists: acc.ptsAssists + assistPts,
               ptsBonus: acc.ptsBonus + (s.bonus || 0),
-              ptsMins: acc.ptsMins + minPts,
               ptsCards: acc.ptsCards + cardPts,
               ptsDefcon: acc.ptsDefcon + defPts,
               
@@ -145,7 +144,7 @@ function App() {
             };
           }, { 
             xg: 0, goals: 0, xa: 0, assists: 0, 
-            ptsGoals: 0, ptsAssists: 0, ptsBonus: 0, ptsMins: 0, ptsCards: 0, ptsDefcon: 0,
+            ptsGoals: 0, ptsAssists: 0, ptsBonus: 0, ptsCards: 0, ptsDefcon: 0,
             yellows: 0, reds: 0 
           });
 
@@ -276,7 +275,6 @@ function App() {
                 <th className="col-stat">A</th>
                 <th className="col-stat">B</th>
                 <th className="col-stat">DC</th>
-                <th className="col-stat">Mins</th>
                 <th className="col-stat">Cards</th>
               </tr>
             </thead>
@@ -289,7 +287,6 @@ function App() {
                   <td className="val-neutral">{m.ptsBonus}</td>
                   {/* Defcon Green if positive, Red if negative */}
                   <td style={{color: m.ptsDefcon >= 0 ? '#00ff87' : '#ff005a'}}>{m.ptsDefcon}</td>
-                  <td className="val-neutral">{m.ptsMins}</td>
                   <td className="val-neg">{m.ptsCards}</td>
                 </tr>
               ))}
@@ -335,7 +332,7 @@ function App() {
         <h3 className="section-title" style={{borderRadius: '8px 8px 0 0'}}>Rank History</h3>
         <div style={{ height: '300px', width: '100%' }}> 
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 40 }}>
+            <LineChart data={chartData} margin={{ top: 25, right: 5, left: -10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
               <XAxis dataKey="gameweek" tick={{fontSize: 12}} stroke="#888" dy={10} />
               <YAxis 

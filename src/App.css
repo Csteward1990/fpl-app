@@ -1,18 +1,19 @@
 /* =========================================
    1. GLOBAL DARK RESET
    ========================================= */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&&family=Roboto:wght@400;600;700&display=swap');
+/* Added Roboto as requested */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&family=Roboto:wght@200;300;400;500;600;700;800;900&display=swap');
 
 :root {
   --bg-dark: #000000;
-  --bg-card: #141414;
+  --bg-card: #141414;      /* Slightly darker than header (#202020) */
   --bg-header: #202020;
   --text-primary: #ffffff;
   --text-secondary: #a0a0a0;
   --accent-green: #00ff87;
   --accent-red: #ff005a;
   --accent-purple: #534f54;
-  --border-color: #2a2a2a;
+  --border-color: #2a2a2a; /* Kept for internal row dividers only */
 }
 
 html, body, #root {
@@ -22,7 +23,7 @@ html, body, #root {
   padding: 0;
   background-color: var(--bg-dark);
   color: var(--text-primary);
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
 /* =========================================
@@ -38,7 +39,7 @@ html, body, #root {
 .dashboard-section {
   background-color: transparent;
   margin-bottom: 30px;
-  border-radius: 0;
+  /* Removed border-radius here to let children handle it */
 }
 
 .section-title {
@@ -50,9 +51,15 @@ html, body, #root {
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 1px;
+  
+  /* BORDERS REMOVED */
+  border: none;
+  
+  /* SPACING REMOVED */
+  margin-bottom: 0; 
+  
+  /* Round top corners only */
   border-radius: 8px 8px 0 0;
-  border: 1px solid var(--border-color);
-  border-bottom: none;
 }
 
 /* =========================================
@@ -65,7 +72,7 @@ html, body, #root {
 }
 .main-header h1 {
   font-family: 'Orbitron', sans-serif;
-  font-size: 2rem;
+  font-size: 1.5rem;
   margin: 0 0 5px 0;
   color: var(--text-primary);
   letter-spacing: 3px;
@@ -81,7 +88,7 @@ html, body, #root {
 .league-name {
   color: var(--text-primary);
   font-family: 'Orbitron', sans-serif;
-  font-size: 1.2rem;
+  font-size: 1.0rem;
   text-transform: uppercase;
   margin: 5px 0 0 0;
 }
@@ -97,7 +104,8 @@ html, body, #root {
   padding: 15px;
   border-radius: 8px;
   text-align: center;
-  border: 1px solid var(--border-color);
+  /* BORDERS REMOVED */
+  border: none; 
 }
 
 /* =========================================
@@ -105,8 +113,14 @@ html, body, #root {
    ========================================= */
 .table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--border-color);
+  
+  /* BORDERS REMOVED */
+  border: none;
+  
+  /* Round bottom corners only (Title handles top) */
   border-radius: 0 0 8px 8px;
+  
+  /* Background set to slight grey (darker than header) */
   background-color: var(--bg-card);
 }
 
@@ -118,39 +132,46 @@ html, body, #root {
 }
 
 .data-table th {
-  background-color: var(--bg-header);
+  background-color: var(--bg-header); /* Matches section title */
   color: white;
-  font-weight: 500;
+  font-weight: 400;
   text-transform: uppercase;
   font-size: 0.65rem;
   padding: 15px 10px;
-  text-align: center; /* Default to Center */
+  text-align: center;
 }
 
 .data-table td {
-  padding: 15px 10px;
+  padding: 10px 10px;
+  /* Kept internal row dividers for readability, removed outer border logic */
   border-bottom: 1px solid var(--border-color);
-  text-align: center; /* Default to Center */
+  text-align: center;
   vertical-align: middle;
 }
 
-/* UTILITY: Force Left Align (Use this for Standings Team Name) */
+/* Remove border from the very last row so it looks clean against the rounded corners */
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* UTILITY: Force Left Align */
 .text-left {
   text-align: left !important;
   padding-left: 20px !important;
 }
 
 /* Fixed Layout Columns */
-.col-team { width: 30%; }
-.col-stat { width: 18%; }
-.col-wide-stat { width: 27%; }
+.col-team { width: 40%; }
+.col-stat { width: 10%; }
+.col-wide-stat { width: 30%; }
+.col-small-stat { width: 10%; }
 
 .cell-content { display: flex; flex-direction: column; }
-.team-name { font-weight: 700; font-size: 0.75rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+.team-name { font-weight: 500; font-size: 0.75rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
 .manager-name { font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
 
-.val-pos { color: var(--accent-green); font-weight: 700; }
-.val-neg { color: var(--accent-red); font-weight: 700; }
+.val-pos { color: var(--accent-green); font-weight: 400; }
+.val-neg { color: var(--accent-red); font-weight: 400; }
 .val-neutral { color: var(--text-secondary); }
 .chip-badge { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--accent-green); background: rgba(0, 255, 135, 0.1); padding: 4px 8px; border-radius: 4px; }
 .chip-none { color: #444; font-size: 0.65rem; }
@@ -159,24 +180,28 @@ html, body, #root {
    5. CHARTS & PITCH
    ========================================= */
 .chart-wrapper {
+  /* Added background color here to match tables */
+  background-color: var(--bg-card);
+  border-radius: 0 0 8px 8px;
   padding: 10px;
   height: 300px;
-  background-color: transparent;
   border: none;
 }
 
 .totw-pitch {
   background: linear-gradient(180deg, #0d2e1c 0%, #05140d 100%);
   padding: 24px 10px;
-  border-radius: 8px;
+  border-radius: 0 0 8px 8px; /* Adjusted to match flow under header */
   margin-bottom: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  border: 1px solid #1a4a2e;
+  /* BORDERS REMOVED */
+  border: none;
 }
+
 .pitch-row { display: flex; justify-content: center; gap: 4px; }
-.player-card { width: 75px; font-size: 0.75rem;text-align: center; position: relative; }
+.player-card { width: 75px; font-size: 0.75rem; text-align: center; position: relative; }
 
 /* Image Styling */
 .player-photo {
@@ -190,7 +215,7 @@ html, body, #root {
 .points-badge {
   position: absolute; top: -6px; right: 8px;
   background: var(--accent-green); color: black;
-  font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 800;
+  font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700;
   width: 20px; height: 20px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.8);
@@ -201,16 +226,3 @@ html, body, #root {
   height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
   color: var(--accent-green); font-family: 'Orbitron', sans-serif; font-size: 1.5rem; background-color: var(--bg-dark);
 }
-
-/* ... existing CSS ... */
-
-/* UPDATED COLUMN WIDTHS */
-.col-team { width: 40%; }       /* Team Name takes 40% */
-.col-stat { width: 10%; }       /* Each stat takes 10% (6 stats x 10% = 60%) */
-.col-wide-stat { width: 30%; }  /* For tables with fewer columns */
-.col-small-stat { width: 10%; } 
-
-/* Colors for specific points */
-.val-pos { color: var(--accent-green); font-weight: 700; }
-.val-neg { color: var(--accent-red); font-weight: 700; }
-.val-neutral { color: var(--text-secondary); }
