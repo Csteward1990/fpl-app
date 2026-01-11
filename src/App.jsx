@@ -3,47 +3,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import './App.css'; 
 
 // ==========================================
-// 1. HIGHLIGHTS COMPONENT
-// ==========================================
-const LeagueHighlights = ({ data, transfers }) => {
-  if (!data || data.length === 0) return null;
-
-  const motw = [...data].sort((a, b) => (b.event_total || 0) - (a.event_total || 0))[0];
-  const woodenSpoon = [...data].sort((a, b) => (a.event_total || 0) - (b.event_total || 0))[0];
-  const leader = [...data].sort((a, b) => (b.total || 0) - (a.total || 0))[0];
-  const bestBench = [...data].sort((a, b) => (b.benchPoints || 0) - (a.benchPoints || 0))[0];
-  const bestTransfer = (transfers || []).sort((a, b) => (b.diff || 0) - (a.diff || 0))[0];
-
-  const highlights = [
-    { title: "MOTW", emoji: "🥇", winner: motw?.player_name, impact: motw?.event_total },
-    { title: "LEADER", emoji: "🏆", winner: leader?.player_name, impact: leader?.total },
-    { title: "BENCH", emoji: "🪑", winner: bestBench?.player_name, impact: bestBench?.benchPoints },
-    { title: "TRANSFER", emoji: "✨", winner: bestTransfer?.manager || "N/A", impact: bestTransfer?.diff || 0 },
-    { title: "SPOON", emoji: "🥄", winner: woodenSpoon?.player_name, impact: woodenSpoon?.event_total }
-  ];
-
-  return (
-    <div style={{ marginBottom: '32px' }}>
-      <h2 className="section-title" style={{ background: 'transparent', border: 'none', textAlign: 'center', fontSize: '1.4rem' }}>
-        League Highlights
-      </h2>
-      <div className="highlights-grid">
-        {highlights.map((h, i) => (
-          <div key={i} className="highlight-card">
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>{h.emoji}</div>
-            <div style={{ fontSize: '12px', fontFamily: 'Orbitron', color: '#667eea', textTransform: 'uppercase' }}>{h.title}</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#00ff87', margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {h.winner || 'N/A'}
-            </div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Impact: {h.impact || 0}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ==========================================
 // MAIN APP COMPONENT
 // ==========================================
 function App() {
@@ -51,15 +10,11 @@ function App() {
   const [chartData, setChartData] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [totwRows, setTotwRows] = useState({ 1: [], 2: [], 3: [], 4: [] });
-  
-  // Loading & Error States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); 
-  
   const [leagueSize, setLeagueSize] = useState(10);
   const [leagueName, setLeagueName] = useState("");
 
-  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchAllData = async () => {
       try {
@@ -106,11 +61,9 @@ function App() {
               tList.filter(t => t.event === activeGW).forEach(t => {
                 const pIn = liveEl.find(el => el.id === t.element_in)?.stats?.total_points || 0;
                 const pOut = liveEl.find(el => el.id === t.element_out)?.stats?.total_points || 0;
-                
-                // --- FIX: Explicitly ensure teamName is captured ---
                 allTransfers.push({ 
                   manager: m.player_name, 
-                  teamName: m.entry_name || "Team",  // Fallback if missing
+                  teamName: m.entry_name || "Team", 
                   playerIn: pMap[t.element_in], 
                   playerOut: pMap[t.element_out], 
                   diff: pIn - pOut 
@@ -124,7 +77,6 @@ function App() {
           const picks = pData?.picks || [];
           const s11 = picks.slice(0, 11);
           const bench = picks.slice(11);
-
           const left = s11.filter(p => liveEl.find(el => el.id === p.element)?.stats?.minutes === 0).length;
           const bPts = bench.reduce((sum, p) => sum + (liveEl.find(el => el.id === p.element)?.stats?.total_points || 0), 0);
           
@@ -148,14 +100,54 @@ function App() {
              }
           });
 
+          // --- CALCULATE GW POINTS BREAKDOWN ---
           const stats = s11.reduce((acc, p) => {
             const s = liveEl.find(el => el.id === p.element)?.stats || {};
+            const playerInfo = pMap[p.element] || {};
+            const pos = playerInfo.pos || 0; // 1=GK, 2=DEF, 3=MID, 4=FWD
+
+            // Goal Points
+            const goalPts = (s.goals_scored || 0) * (pos <= 2 ? 6 : pos === 3 ? 5 : 4);
+            
+            // Assist Points
+            const assistPts = (s.assists || 0) * 3;
+            
+            // Minutes Points
+            const minPts = (s.minutes || 0) >= 60 ? 2 : ((s.minutes || 0) > 0 ? 1 : 0);
+            
+            // Card Points
+            const cardPts = ((s.yellow_cards || 0) * -1) + ((s.red_cards || 0) * -3);
+            
+            // Defcon (Clean Sheet + Saves + Pens Saved - Goals Conceded - Own Goals)
+            let defPts = 0;
+            if (s.clean_sheets) defPts += (pos <= 2 ? 4 : pos === 3 ? 1 : 0);
+            if (pos <= 2 && s.goals_conceded >= 2) defPts -= Math.floor(s.goals_conceded / 2);
+            if (s.saves) defPts += Math.floor(s.saves / 3);
+            if (s.penalties_saved) defPts += (s.penalties_saved * 5);
+            if (s.own_goals) defPts += (s.own_goals * -2);
+
             return {
-              bonus: acc.bonus + (s.bonus || 0), yellows: acc.yellows + (s.yellow_cards || 0), reds: acc.reds + (s.red_cards || 0),
-              xg: acc.xg + parseFloat(s.expected_goals || 0), goals: acc.goals + (s.goals_scored || 0),
-              xa: acc.xa + parseFloat(s.expected_assists || 0), assists: acc.assists + (s.assists || 0)
+              xg: acc.xg + parseFloat(s.expected_goals || 0),
+              goals: acc.goals + (s.goals_scored || 0),
+              xa: acc.xa + parseFloat(s.expected_assists || 0),
+              assists: acc.assists + (s.assists || 0),
+              
+              // Accumulate Calculated Points
+              ptsGoals: acc.ptsGoals + goalPts,
+              ptsAssists: acc.ptsAssists + assistPts,
+              ptsBonus: acc.ptsBonus + (s.bonus || 0),
+              ptsMins: acc.ptsMins + minPts,
+              ptsCards: acc.ptsCards + cardPts,
+              ptsDefcon: acc.ptsDefcon + defPts,
+              
+              yellows: acc.yellows + (s.yellow_cards || 0),
+              reds: acc.reds + (s.red_cards || 0)
             };
-          }, { bonus: 0, yellows: 0, reds: 0, xg: 0, goals: 0, xa: 0, assists: 0 });
+          }, { 
+            xg: 0, goals: 0, xa: 0, assists: 0, 
+            ptsGoals: 0, ptsAssists: 0, ptsBonus: 0, ptsMins: 0, ptsCards: 0, ptsDefcon: 0,
+            yellows: 0, reds: 0 
+          });
 
           const rawHistory = Array.isArray(history) ? history : (history.current || []);
 
@@ -236,15 +228,14 @@ function App() {
   return (
     <div className="app-container">
       <header className="main-header">
-        <h1>FPL TRACKER V2</h1>
+        <h1>FPL TRACKER</h1>
         <div className="league-meta">
           <p className="league-label">FPL League</p>
           <h2 className="league-name">{leagueName}</h2>
         </div>
       </header>
       
-      {/* <LeagueHighlights data={standingsData} transfers={transfers} /> */}
-
+      {/* 1. LEAGUE STANDINGS */}
       <section className="dashboard-section">
         <h3 className="section-title">League Standings</h3>
         <div className="table-wrapper">
@@ -252,7 +243,7 @@ function App() {
             <thead>
               <tr>
                 <th style={{width:'8%'}}>Rank</th>
-                <th className="col-team">Team / Manager</th>
+                <th className="col-team text-left">Team</th>
                 <th style={{width:'15%'}}>Chip</th>
                 <th className="col-stat">GW</th>
                 <th className="col-stat">Total</th>
@@ -262,7 +253,7 @@ function App() {
               {standingsData.map(m => (
                 <tr key={m.id}>
                   <td>{m.rank}</td>
-                  <td>{renderTeamCell(m.entry_name, m.player_name)}</td>
+                  <td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td>
                   <td><span className={m.activeChip !== 'None' ? 'chip-badge' : 'chip-none'}>{(m.activeChip || "NONE").toUpperCase().slice(0,4)}</span></td>
                   <td className="val-neutral">{m.event_total}</td>
                   <td className="val-pos">{m.total}</td>
@@ -273,34 +264,109 @@ function App() {
         </div>
       </section>
 
+      {/* 2. POINTS BREAKDOWN (Placed here as requested) */}
+      <section className="dashboard-section">
+        <h3 className="section-title">GW Points Breakdown</h3>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="col-team text-left">Team</th>
+                <th className="col-stat">G</th>
+                <th className="col-stat">A</th>
+                <th className="col-stat">B</th>
+                <th className="col-stat">DC</th>
+                <th className="col-stat">Mins</th>
+                <th className="col-stat">Cards</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standingsData.map(m => (
+                <tr key={m.entry}>
+                  <td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td>
+                  <td className="val-pos">{m.ptsGoals}</td>
+                  <td className="val-pos">{m.ptsAssists}</td>
+                  <td className="val-neutral">{m.ptsBonus}</td>
+                  {/* Defcon Green if positive, Red if negative */}
+                  <td style={{color: m.ptsDefcon >= 0 ? '#00ff87' : '#ff005a'}}>{m.ptsDefcon}</td>
+                  <td className="val-neutral">{m.ptsMins}</td>
+                  <td className="val-neg">{m.ptsCards}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 3. TRANSFER IMPACT */}
+      <section className="dashboard-section">
+        <h3 className="section-title">Transfer Impact</h3>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="col-team" style={{textAlign: 'center'}}>Team</th>
+                <th className="col-wide-stat" style={{textAlign: 'center'}}>IN</th>
+                <th className="col-wide-stat" style={{textAlign: 'center'}}>OUT</th>
+                <th className="col-stat" style={{textAlign: 'center'}}>Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transfers.slice(0, 5).map((t, i) => (
+                <tr key={i}>
+                  <td style={{textAlign: 'center', paddingLeft: 0}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+                      <span style={{color: '#ffffff', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span>
+                      <span style={{color: '#a0a0a0', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span>
+                    </div>
+                  </td>
+                  <td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerIn?.name}</span></div></td>
+                  <td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerOut?.name}</span></div></td>
+                  <td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 4. RANK HISTORY */}
       <section className="dashboard-section" style={{background: 'transparent', border: 'none'}}>
         <h3 className="section-title" style={{borderRadius: '8px 8px 0 0'}}>Rank History</h3>
-        <div className="chart-wrapper">
+        <div style={{ height: '300px', width: '100%' }}> 
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={chartData} 
-              margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-            >
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-              <XAxis dataKey="gameweek" stroke="#888" tick={{fontSize: 12}} />
+              <XAxis dataKey="gameweek" tick={{fontSize: 12}} stroke="#888" dy={10} />
               <YAxis 
-                reversed 
+                reversed={true} 
                 domain={[1, leagueSize]} 
                 ticks={Array.from({length: leagueSize}, (_, i) => i + 1)} 
-                interval={0}
-                stroke="#888" 
-                tick={{fontSize: 12}} 
+                tick={{fontSize: 12}}
+                width={30}
+                stroke="#888"
               />
-              <Tooltip contentStyle={{ backgroundColor: '#1e1e1e', borderColor: '#333', color: '#fff' }} />
-              <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-              {standingsData.map((m, i) => (
+              <Tooltip contentStyle={{ backgroundColor: '#141414', borderColor: '#333', color: '#fff' }} />
+              <Legend 
+                align="center"
+                verticalAlign="bottom"
+                iconType="circle"
+                iconSize={10}
+                wrapperStyle={{ 
+                  paddingTop: '10px', 
+                  fontSize: '11px',
+                  width: '100%',
+                  left: 0,
+                  bottom: 0 
+                }} 
+              />
+              {Object.keys(chartData[0] || {}).filter(k => k !== 'gameweek').map((name, i) => (
                 <Line 
-                  key={m.entry_name} 
-                  type="monotone" 
-                  dataKey={m.entry_name} 
+                  key={name} 
+                  dataKey={name} 
                   stroke={`hsl(${(i * 137) % 360}, 70%, 50%)`} 
                   strokeWidth={3} 
-                  dot={{r:3}} 
+                  dot={{ r: 4 }} 
                 />
               ))}
             </LineChart>
@@ -308,6 +374,79 @@ function App() {
         </div>
       </section>
 
+      {/* 5. GW EFFICIENCY */}
+      <section className="dashboard-section">
+        <h3 className="section-title">GW Efficiency (PPM)</h3>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="col-team" style={{textAlign: 'center'}}>Team</th>
+                <th className="col-wide-stat" style={{textAlign: 'center'}}>GW MVP</th>
+                <th className="col-wide-stat" style={{textAlign: 'center'}}>GW LVP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standingsData.map(m => (
+                <tr key={m.entry}>
+                  <td style={{textAlign: 'center', paddingLeft: 0}}>{renderTeamCell(m.entry_name, m.player_name)}</td>
+                  <td style={{textAlign: 'center'}}>
+                    {m.bestGWValue ? (
+                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}>
+                        <PlayerPhoto photo={m.bestGWValue.photo} width="32px" />
+                        <span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.bestGWValue.name}</span>
+                        <span className="val-pos">{m.bestGWValue.gwPPM}</span>
+                      </div>
+                    ) : '-'}
+                  </td>
+                  <td style={{textAlign: 'center'}}>
+                    {m.worstGWValue ? (
+                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}>
+                        <PlayerPhoto photo={m.worstGWValue.photo} width="32px" />
+                        <span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.worstGWValue.name}</span>
+                        <span className="val-neg">{m.worstGWValue.gwPPM}</span>
+                      </div>
+                    ) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 6. CLINICALITY */}
+      <section className="dashboard-section">
+        <h3 className="section-title">Clinicality Index</h3>
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="col-team text-left">Team</th>
+                <th className="col-small-stat">xG</th>
+                <th className="col-small-stat">G</th>
+                <th className="col-small-stat">xA</th>
+                <th className="col-small-stat">A</th>
+                <th className="col-small-stat">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standingsData.map(m => {
+                const net = (m.goals + m.assists) - (m.xg + m.xa);
+                return (
+                  <tr key={m.entry}>
+                    <td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td>
+                    <td>{m.xg.toFixed(1)}</td><td>{m.goals}</td><td>{m.xa.toFixed(1)}</td><td>{m.assists}</td>
+                    <td className={net >= 0 ? 'val-pos' : 'val-neg'}>{net.toFixed(1)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 7. TOTW */}
       <section className="dashboard-section">
         <h3 className="section-title">League Team of the Week</h3>
         <div className="totw-pitch">
@@ -322,129 +461,6 @@ function App() {
               ))}
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="dashboard-section">
-        <h3 className="section-title">Clinicality Index</h3>
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="col-team">Team</th>
-                <th>xG</th><th>G</th><th>xA</th><th>A</th><th>Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standingsData.map(m => {
-                const net = (m.goals + m.assists) - (m.xg + m.xa);
-                return (
-                  <tr key={m.entry}>
-                    <td>{renderTeamCell(m.entry_name, m.player_name)}</td>
-                    <td>{m.xg.toFixed(1)}</td><td>{m.goals}</td><td>{m.xa.toFixed(1)}</td><td>{m.assists}</td>
-                    <td className={net >= 0 ? 'val-pos' : 'val-neg'}>{net.toFixed(1)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* --- UPDATED: TRANSFER IMPACT --- */}
-      <section className="dashboard-section">
-        <h3 className="section-title">Transfer Impact</h3>
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {/* FIXED WIDTHS APPLIED */}
-                <th className="col-team">Team / Manager</th>
-                <th className="col-stat">IN</th>
-                <th className="col-stat">OUT</th>
-                <th className="col-stat">Diff</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transfers.slice(0, 5).map((t, i) => (
-                <tr key={i}>
-                  <td style={{textAlign: 'center', paddingLeft: 0}}>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-                      <span style={{color: '#ffffff', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span>
-                      <span style={{color: '#a0a0a0', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span>
-                    </div>
-                  </td>
-                  <td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.7rem'}}>{t.playerIn?.name}</span></div></td>
-                  <td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.7rem'}}>{t.playerOut?.name}</span></div></td>
-                  <td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* --- UPDATED: GW EFFICIENCY --- */}
-      <section className="dashboard-section">
-        <h3 className="section-title">GW Efficiency (PPM)</h3>
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {/* FIXED WIDTHS APPLIED */}
-                <th className="col-team">Team</th>
-                <th className="col-wide-stat">GW MVP</th>
-                <th className="col-wide-stat">GW LVP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standingsData.map(m => (
-                <tr key={m.entry}>
-                  <td>{renderTeamCell(m.entry_name, m.player_name)}</td>
-                  <td style={{textAlign: 'center'}}>
-                    {m.bestGWValue ? (
-                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}>
-                        <PlayerPhoto photo={m.bestGWValue.photo} width="32px" />
-                        <span style={{fontSize:'0.7rem', fontWeight:'600'}}>{m.bestGWValue.name}</span>
-                        <span className="val-pos">{m.bestGWValue.gwPPM}</span>
-                      </div>
-                    ) : '-'}
-                  </td>
-                  <td style={{textAlign: 'center'}}>
-                    {m.worstGWValue ? (
-                      <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}>
-                        <PlayerPhoto photo={m.worstGWValue.photo} width="32px" />
-                        <span style={{fontSize:'0.7rem', fontWeight:'600'}}>{m.worstGWValue.name}</span>
-                        <span className="val-neg">{m.worstGWValue.gwPPM}</span>
-                      </div>
-                    ) : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="dashboard-section">
-        <h3 className="section-title">Bonus & Discipline</h3>
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="col-team">Team</th>
-                <th>Bonus</th><th>Yellows</th><th>Reds</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standingsData.map(m => (
-                <tr key={m.entry}>
-                  <td>{renderTeamCell(m.entry_name, m.player_name)}</td>
-                  <td className="val-pos">{m.bonus}</td><td>{m.yellows} 🟨</td><td className="val-neg">{m.reds} 🟥</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </section>
     </div>

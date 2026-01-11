@@ -1,7 +1,7 @@
 /* =========================================
    1. GLOBAL DARK RESET
    ========================================= */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&&family=Roboto:wght@400;600;700&display=swap');
 
 :root {
   --bg-dark: #000000;
@@ -65,7 +65,7 @@ html, body, #root {
 }
 .main-header h1 {
   font-family: 'Orbitron', sans-serif;
-  font-size: 2.5rem;
+  font-size: 2rem;
   margin: 0 0 5px 0;
   color: var(--text-primary);
   letter-spacing: 3px;
@@ -81,7 +81,8 @@ html, body, #root {
 .league-name {
   color: var(--text-primary);
   font-family: 'Orbitron', sans-serif;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
+  text-transform: uppercase;
   margin: 5px 0 0 0;
 }
 
@@ -140,7 +141,7 @@ html, body, #root {
 }
 
 /* Fixed Layout Columns */
-.col-team { width: 45%; }
+.col-team { width: 30%; }
 .col-stat { width: 18%; }
 .col-wide-stat { width: 27%; }
 
@@ -159,7 +160,7 @@ html, body, #root {
    ========================================= */
 .chart-wrapper {
   padding: 10px;
-  height: 500px;
+  height: 300px;
   background-color: transparent;
   border: none;
 }
@@ -200,3 +201,16 @@ html, body, #root {
   height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
   color: var(--accent-green); font-family: 'Orbitron', sans-serif; font-size: 1.5rem; background-color: var(--bg-dark);
 }
+
+/* ... existing CSS ... */
+
+/* UPDATED COLUMN WIDTHS */
+.col-team { width: 40%; }       /* Team Name takes 40% */
+.col-stat { width: 10%; }       /* Each stat takes 10% (6 stats x 10% = 60%) */
+.col-wide-stat { width: 30%; }  /* For tables with fewer columns */
+.col-small-stat { width: 10%; } 
+
+/* Colors for specific points */
+.val-pos { color: var(--accent-green); font-weight: 700; }
+.val-neg { color: var(--accent-red); font-weight: 700; }
+.val-neutral { color: var(--text-secondary); }

@@ -259,7 +259,7 @@ const FplStandings = () => {
       {/* 7. Rank Chart */}
       <div style={{ ...cardStyle, marginTop: '40px', padding: '20px' }}>
         <h3 style={{ color: '#37003c', textAlign: 'center', marginBottom: '20px' }}>League Position History</h3>
-        <div style={{ height: '350px' }}>
+        <div style={{ height: '300px' }}>
           <ResponsiveContainer>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
