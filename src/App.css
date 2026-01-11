@@ -47,8 +47,9 @@ html, body, #root {
   color: var(--text-primary);
   font-family: 'Orbitron', sans-serif;
   font-size: 1rem;
-  padding: 12px;
-  text-align: center;
+  font-weight: 500;
+  padding: 9px;
+  text-align: left;
   text-transform: uppercase;
   letter-spacing: 1px;
   
@@ -90,7 +91,7 @@ html, body, #root {
   font-family: 'Orbitron', sans-serif;
   font-size: 1.0rem;
   text-transform: uppercase;
-  margin: 5px 0 0 0;
+  margin: 0px 0 0 0;
 }
 
 .highlights-grid {
@@ -137,7 +138,7 @@ html, body, #root {
   font-weight: 400;
   text-transform: uppercase;
   font-size: 0.65rem;
-  padding: 15px 10px;
+  padding: 10px 10px;
   text-align: center;
 }
 

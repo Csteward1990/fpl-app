@@ -361,7 +361,11 @@ function App() {
                 <Line 
                   key={name} 
                   dataKey={name} 
-                  stroke={`hsl(${(i * 137) % 360}, 70%, 50%)`} 
+                  /* UPDATED FORMULA: 
+                     - 50% Saturation (Was 70%) -> Makes it less "Neon"
+                     - 60% Lightness (Was 50%) -> Makes it softer/cleaner
+                  */
+                  stroke={`hsl(${(i * 137) % 360}, 50%, 60%)`} 
                   strokeWidth={3} 
                   dot={{ r: 4 }} 
                 />
