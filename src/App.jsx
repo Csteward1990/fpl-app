@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  ScatterChart, Scatter, ZAxis, ReferenceLine, Cell, LabelList
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, 
+  ScatterChart, Scatter, ReferenceLine, Cell, LabelList, Tooltip 
 } from 'recharts';
 import './App.css'; 
 
@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState(null); 
   const [leagueSize, setLeagueSize] = useState(10);
   const [leagueName, setLeagueName] = useState("");
+  const [gwAverage, setGwAverage] = useState(0);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -131,6 +132,10 @@ function App() {
         const leaguePlayerPool = new Map();
         const allTransfers = [];
 
+        // LEAGUE AVERAGE CALC
+        const totalGwPoints = managers.reduce((sum, m) => sum + m.event_total, 0);
+        setGwAverage(managers.length > 0 ? totalGwPoints / managers.length : 0);
+
         const enriched = await Promise.all(managers.map(async (m) => {
           const histRes = await fetch(`${API_BASE_URL}/api/manager-history/${m.entry}`);
           const history = await histRes.json();
@@ -234,6 +239,21 @@ function App() {
       if (pts <= 2) return <span className="result-badge res-flop">FLOP</span>;
       return <span className="result-badge res-ok">OK</span>;
   };
+  
+  // COLOR HELPERS
+  const getScoreColorClass = (score) => {
+      if (!gwAverage) return ''; 
+      if (score >= gwAverage * 1.05) return 'val-pos'; 
+      if (score <= gwAverage * 0.95) return 'val-neg'; 
+      return 'val-warn'; 
+  };
+
+  const getDiffColorClass = (diff) => {
+      if (diff > 0) return 'val-pos';
+      if (diff < 0) return 'val-neg';
+      return 'val-warn';
+  };
+
   const renderPlayerList = (list) => list.map(p => (
     <div key={p.id} className="player-list-item">
         <div className="player-info">
@@ -294,25 +314,25 @@ function App() {
                 <div className="table-wrapper">
                 <table className="data-table">
                     <thead><tr><th style={{width:'8%'}}>Rank</th><th className="col-team text-left">Team / Manager</th><th style={{width:'15%'}}>Chip</th><th className="col-stat">GW</th><th className="col-stat">Total</th></tr></thead>
-                    <tbody>{standingsData.map(m => (<tr key={m.id}><td>{m.rank}</td><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td><span className={m.activeChip !== 'None' ? 'chip-badge' : 'chip-none'}>{(m.activeChip || "NONE").toUpperCase().slice(0,4)}</span></td><td className="val-neutral">{m.event_total}</td><td className="val-pos">{m.total}</td></tr>))}</tbody>
+                    <tbody>{standingsData.map(m => (<tr key={m.id}><td>{m.rank}</td><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td><span className={m.activeChip !== 'None' ? 'chip-badge' : 'chip-none'}>{(m.activeChip || "NONE").toUpperCase().slice(0,4)}</span></td><td className={getScoreColorClass(m.event_total)}>{m.event_total}</td><td style={{ fontWeight: 700 }}>{m.total}</td></tr>))}</tbody>
                 </table>
                 </div>
             </section>
 
-            {/* 2. RANK HISTORY (Moved Up) */}
-            <section className="dashboard-section" style={{background: 'transparent', border: 'none'}}><h3 className="section-title" style={{borderRadius: '4px 4px 0 0'}}>Rank History</h3><div className="chart-wrapper"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 40 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" /><XAxis dataKey="gameweek" tick={{fontSize: 12, fill: '#666'}} stroke="#ccc" dy={10} /><YAxis reversed={true} domain={[1, leagueSize]} ticks={Array.from({length: leagueSize}, (_, i) => i + 1)} tick={{fontSize: 12, fill: '#666'}} width={30} stroke="#ccc" /><Tooltip contentStyle={{ backgroundColor: '#141414', borderColor: '#333', color: '#fff' }} /><Legend align="center" verticalAlign="bottom" iconType="circle" iconSize={10} wrapperStyle={{ paddingTop: '10px', fontSize: '11px', width: '100%', left: 0, bottom: 0, color: '#666' }} />{Object.keys(chartData[0] || {}).filter(k => k !== 'gameweek').map((name, i) => (<Line key={name} dataKey={name} stroke={`hsl(${(i * 137) % 360}, 60%, 40%)`} strokeWidth={3} dot={{ r: 4 }} />))}</LineChart></ResponsiveContainer></div></section>
+            {/* 2. RANK HISTORY (No Tooltip, Y-Axis Visible, Legend Fixed) */}
+            <section className="dashboard-section" style={{background: 'transparent', border: 'none'}}><h3 className="section-title" style={{borderRadius: '4px 4px 0 0'}}>Rank History</h3><div className="chart-wrapper"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" /><XAxis dataKey="gameweek" tick={{fontSize: 12, fill: '#666'}} stroke="#ccc" dy={10} /><YAxis reversed={true} domain={[1, leagueSize]} ticks={Array.from({length: leagueSize}, (_, i) => i + 1)} tick={{fontSize: 12, fill: '#666'}} width={35} stroke="#ccc" /><Legend align="center" verticalAlign="bottom" iconType="circle" iconSize={10} wrapperStyle={{ bottom: 0, fontSize: '11px', width: '100%', color: '#666' }} />{Object.keys(chartData[0] || {}).filter(k => k !== 'gameweek').map((name, i) => (<Line key={name} dataKey={name} stroke={`hsl(${(i * 137) % 360}, 60%, 40%)`} strokeWidth={3} dot={{ r: 4 }} isAnimationActive={false} />))}</LineChart></ResponsiveContainer></div></section>
 
             {/* 3. POINTS BREAKDOWN */}
-            <section className="dashboard-section"><h3 className="section-title">GW Points Breakdown</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-stat">G</th><th className="col-stat">A</th><th className="col-stat">B</th><th className="col-stat">DC</th><th className="col-stat">Cards</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td className="val-pos">{m.ptsGoals}</td><td className="val-pos">{m.ptsAssists}</td><td className="val-neutral">{m.ptsBonus}</td><td style={{color: m.ptsDefcon >= 0 ? '#00994d' : '#d9004c'}}>{m.ptsDefcon}</td><td className="val-neg">{m.ptsCards}</td></tr>))}</tbody></table></div></section>
+            <section className="dashboard-section"><h3 className="section-title">GW Points Breakdown</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-stat">G</th><th className="col-stat">A</th><th className="col-stat">B</th><th className="col-stat">DC</th><th className="col-stat">Cards</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td style={{ fontWeight: 700 }}>{m.ptsGoals}</td><td style={{ fontWeight: 700 }}>{m.ptsAssists}</td><td className="val-neutral">{m.ptsBonus}</td><td style={{color: '#00994d'}}>{m.ptsDefcon}</td><td className="val-neg">{m.ptsCards}</td></tr>))}</tbody></table></div></section>
 
-            {/* 4. TEAM OF THE WEEK (Moved Here) */}
+            {/* 4. TEAM OF THE WEEK */}
             <section className="dashboard-section"><h3 className="section-title">League Team of the Week</h3><div className="totw-pitch">{[1, 2, 3, 4].map(row => (<div key={row} className="pitch-row">{totwRows[row].map(p => (<div key={p.id} className="player-card"><div className="points-badge">{p.displayPoints}</div><PlayerPhoto photo={p.photo} /><div className="player-name">{p.name}</div></div>))}</div>))}</div></section>
 
             {/* 5. TRANSFER IMPACT */}
-            <section className="dashboard-section"><h3 className="section-title">Transfer Impact</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>IN</th><th className="col-wide-stat" style={{textAlign: 'center'}}>OUT</th><th className="col-stat" style={{textAlign: 'center'}}>Diff</th></tr></thead><tbody>{transfers.slice(0, 5).map((t, i) => (<tr key={i}><td style={{textAlign: 'center', paddingLeft: 0}}><div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}><span style={{color: '#000', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span><span style={{color: '#666', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerIn?.name}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerOut?.name}</span></div></td><td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td></tr>))}</tbody></table></div></section>
+            <section className="dashboard-section"><h3 className="section-title">Transfer Impact</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>IN</th><th className="col-wide-stat" style={{textAlign: 'center'}}>OUT</th><th className="col-stat" style={{textAlign: 'center'}}>Diff</th></tr></thead><tbody>{transfers.slice(0, 5).map((t, i) => (<tr key={i}><td className="text-left"><div style={{display: 'flex', flexDirection: 'column'}}><span style={{color: '#000', fontWeight: '700', fontSize: '0.8rem'}}>{t.teamName}</span><span style={{color: '#666', fontSize: '0.7rem', marginTop: '2px'}}>{t.manager}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerIn?.name}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerOut?.name}</span></div></td><td className={getDiffColorClass(t.diff)}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td></tr>))}</tbody></table></div></section>
             
             {/* 6. GW EFFICIENCY */}
-            <section className="dashboard-section"><h3 className="section-title">GW Efficiency (PPM)</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW MVP</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW LVP</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td style={{textAlign: 'center', paddingLeft: 0}}>{renderTeamCell(m.entry_name, m.player_name)}</td><td style={{textAlign: 'center'}}>{m.bestGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}><PlayerPhoto photo={m.bestGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.bestGWValue.name}</span><span className="val-pos">{m.bestGWValue.gwPPM}</span></div>) : '-'}</td><td style={{textAlign: 'center'}}>{m.worstGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}><PlayerPhoto photo={m.worstGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.worstGWValue.name}</span><span className="val-neg">{m.worstGWValue.gwPPM}</span></div>) : '-'}</td></tr>))}</tbody></table></div></section>
+            <section className="dashboard-section"><h3 className="section-title">GW Efficiency (PPM)</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW MVP</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW LVP</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td style={{textAlign: 'center'}}>{m.bestGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}><PlayerPhoto photo={m.bestGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.bestGWValue.name}</span><span className="val-pos">{m.bestGWValue.gwPPM}</span></div>) : '-'}</td><td style={{textAlign: 'center'}}>{m.worstGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}><PlayerPhoto photo={m.worstGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.worstGWValue.name}</span><span className="val-neg">{m.worstGWValue.gwPPM}</span></div>) : '-'}</td></tr>))}</tbody></table></div></section>
         </>
       )}
 

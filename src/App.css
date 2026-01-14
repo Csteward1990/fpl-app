@@ -1,5 +1,5 @@
 /* =========================================
-   1. GLOBAL LIGHT RESET
+   1. GLOBAL LIGHT RESET & FONTS
    ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;600;700&family=Roboto:wght@200;300;400;500;600;700;800;900&family=Roboto+Condensed:ital,wght@0,200..700;1,200..700&display=swap');
 
@@ -10,8 +10,10 @@
   --text-primary: #000000;
   --text-secondary: #555555;
   
+  /* Colors */
   --accent-green: #00994d;  
   --accent-red: #d9004c;
+  --accent-amber: #d4a017;
   
   --border-color: #e0e0e0;  
   --table-bg: #fafafa;
@@ -38,7 +40,7 @@ html, body, #root {
 }
 
 /* =========================================
-   3. HEADER & TABS (UPDATED BUTTONS)
+   3. HEADER & TABS
    ========================================= */
 .main-header { text-align: center; margin-bottom: 30px; padding-top: 20px; }
 .main-header h1 { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; margin: 0; letter-spacing: 3px; }
@@ -53,9 +55,9 @@ html, body, #root {
   background: #fff;
   border: 2px solid #000;
   color: #000;
-  /* UPDATED: Smaller and Fixed Width */
+  /* Fixed width and smaller size as requested */
   padding: 8px 0; 
-  width: 150px; 
+  width: 140px; 
   font-family: 'Orbitron', sans-serif;
   font-size: 0.75rem;
   cursor: pointer;
@@ -79,7 +81,7 @@ html, body, #root {
    ========================================= */
 .table-wrapper {
   overflow-x: auto; border: 1px solid var(--border-color); border-top: none;
-  border-radius: 0 0 4px 4px; background-color: var(--table-bg);
+  border-radius: 0 0 4px 4px; background-color: var(--table-bg); /* Slight Grey BG */
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
@@ -89,27 +91,35 @@ html, body, #root {
 }
 
 .data-table th {
-  background-color: transparent; color: #000000;
+  background-color: transparent; /* No Black Background */
+  color: #000000; /* Black Font */
   font-weight: 700; text-transform: uppercase; font-size: 0.7rem;
-  padding: 12px 4px; text-align: center; border-bottom: 2px solid #000;
+  padding: 12px 2px; text-align: center; 
+  border-bottom: 2px solid #000; /* Thick line separator */
 }
 
 .data-table td {
-  padding: 12px 4px; border-bottom: 1px solid #e0e0e0;
+  padding: 12px 2px; /* Small horizontal padding for Mobile Fit */
+  border-bottom: 1px solid #e0e0e0;
   text-align: center; vertical-align: middle; color: var(--text-primary); font-weight: 500;
 }
 .data-table tr:last-child td { border-bottom: none; }
-.text-left { text-align: left !important; padding-left: 15px !important; }
+.text-left { text-align: left !important; padding-left: 10px !important; }
 
 /* Widths & Colors */
 .col-team { width: 40%; } .col-stat { width: 10%; } .col-wide-stat { width: 30%; } .col-small-stat { width: 10%; } 
-.val-pos { color: var(--accent-green); font-weight: 700; }
-.val-neg { color: var(--accent-red); font-weight: 700; }
-.val-neutral { color: var(--text-secondary); }
+
+/* FORCE COLORS !important to override table defaults */
+.val-pos { color: var(--accent-green) !important; font-weight: 700; }
+.val-neg { color: var(--accent-red) !important; font-weight: 700; }
+.val-warn { color: var(--accent-amber) !important; font-weight: 700; }
+.val-neutral { color: var(--text-secondary) !important; }
 
 .cell-content { display: flex; flex-direction: column; }
+/* Restored original sizing to not be "big/weighty" */
 .team-name { font-weight: 700; font-size: 0.8rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
-.manager-name { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; }
+.manager-name { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+
 .chip-badge { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: #fff; background: #000; padding: 4px 8px; border-radius: 4px; }
 .chip-none { color: #ccc; font-size: 0.65rem; }
 
@@ -186,7 +196,10 @@ html, body, #root {
 .pitch-row { display: flex; justify-content: center; gap: 4px; }
 .player-card { width: 75px; font-size: 0.75rem; text-align: center; position: relative; color: white; }
 .player-photo {
-  width: 38px; margin: 0 auto; display: block; object-fit: cover; object-position: top; border-radius: 4px;
+  width: 38px; /* Smaller image */
+  margin: 0 auto; display: block; 
+  object-fit: cover; object-position: top; /* Prevents cropping the head */
+  border-radius: 4px;
 }
 .points-badge {
   position: absolute; top: -6px; right: 8px; background: #fff; color: #000;
@@ -196,7 +209,7 @@ html, body, #root {
 }
 
 /* =========================================
-   7. L5 ANALYSIS (UPDATED LIGHT)
+   7. L5 ANALYSIS
    ========================================= */
 .analysis-section { margin-top: 40px; }
 .pos-header {
@@ -212,7 +225,7 @@ html, body, #root {
 }
 
 .card-header-strip {
-  background: #000000; /* Now Black */
+  background: #000000; /* Black Header */
   color: #fff; padding: 12px 15px; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.9rem;
   display: flex; justify-content: space-between; align-items: center;
 }
