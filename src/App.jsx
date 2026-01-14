@@ -12,6 +12,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('league');
   const [standingsData, setStandingsData] = useState([]);
   const [gwGlobalStats, setGwGlobalStats] = useState(null);
+  const [l5Stats, setL5Stats] = useState(null); 
   const [chartData, setChartData] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [totwRows, setTotwRows] = useState({ 1: [], 2: [], 3: [], 4: [] });
@@ -25,69 +26,40 @@ function App() {
       try {
         const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-        // 1. Fetch Bootstrap (Global Info)
+        // 1. Fetch Bootstrap
         const bootstrapRes = await fetch(`${API_BASE_URL}/api/bootstrap-static`);
         if (!bootstrapRes.ok) throw new Error("Server is sleeping or unreachable. Please refresh.");
         const bData = await bootstrapRes.json();
         const activeGW = bData?.events?.find(e => e.is_current)?.id || 1;
         
-        // Map Teams (id -> name)
         const teamMap = {};
-        bData?.teams?.forEach(t => {
-            teamMap[t.id] = { name: t.name, short: t.short_name };
-        });
+        bData?.teams?.forEach(t => { teamMap[t.id] = { name: t.name, short: t.short_name }; });
 
-        // Map Players
         const pMap = {};
         bData?.elements?.forEach(p => {
           pMap[p.id] = { 
-            id: p.id, 
-            name: p.web_name, 
-            teamId: p.team,
-            team: teamMap[p.team]?.short || "UNK",
-            team_full: teamMap[p.team]?.name || "Unknown",
-            cost: p.now_cost / 10, 
-            photo: p.code, 
-            pos: p.element_type,
-            transfers_in: p.transfers_in_event,
-            transfers_out: p.transfers_out_event,
-            selected_by: parseFloat(p.selected_by_percent)
+            id: p.id, name: p.web_name, teamId: p.team, team: teamMap[p.team]?.short || "UNK",
+            team_full: teamMap[p.team]?.name || "Unknown", cost: p.now_cost / 10, photo: p.code, 
+            pos: p.element_type, transfers_in: p.transfers_in_event, transfers_out: p.transfers_out_event,
+            selected_by: parseFloat(p.selected_by_percent), total_points: p.total_points
           };
         });
 
-        // 2. Fetch Live Stats (Global Stats for this GW)
+        // 2. Live Stats
         const liveRes = await fetch(`${API_BASE_URL}/api/live-data/${activeGW}`);
         const liveData = await liveRes.json();
         const liveEl = liveData?.elements || [];
 
-        // --- GLOBAL STATS AGGREGATION ---
-        let totalGoals = 0;
-        let totalAssists = 0;
-        let totalRedCards = 0;
-        let totalPoints = 0;
-        
-        // Team Aggregation Container
+        // --- GLOBAL STATS ---
+        let totalGoals = 0, totalAssists = 0, totalRedCards = 0, totalPoints = 0;
         const teamPerf = {}; 
-        // Initialize all teams
         bData.teams.forEach(t => {
-            teamPerf[t.id] = { 
-                name: t.name, 
-                short: t.short_name, 
-                goals: 0, 
-                assists: 0, 
-                xg: 0, 
-                conceded: 0, 
-                total_minutes: 0, // Track if ANYONE played
-                clean_sheet: false, 
-                defScore: 0 // (Defcon + Bonus) for GK/DEF
-            };
+            teamPerf[t.id] = { name: t.name, short: t.short_name, goals: 0, assists: 0, xg: 0, conceded: 0, total_minutes: 0, clean_sheet: false, defScore: 0 };
         });
 
         const allPlayers = liveEl.map(el => {
             const meta = pMap[el.id] || {};
             const stats = el.stats;
-            
-            // 1. Defcon Calculation
             const pos = meta.pos || 0;
             let defPts = 0;
             if (stats.clean_sheets) defPts += (pos <= 2 ? 4 : pos === 3 ? 1 : 0);
@@ -96,89 +68,61 @@ function App() {
             if (stats.penalties_saved) defPts += (stats.penalties_saved * 5);
             if (stats.own_goals) defPts += (stats.own_goals * -2);
 
-            // 2. Global Aggregates
-            totalGoals += stats.goals_scored;
-            totalAssists += stats.assists;
-            totalRedCards += stats.red_cards;
-            totalPoints += stats.total_points;
+            totalGoals += stats.goals_scored; totalAssists += stats.assists; totalRedCards += stats.red_cards; totalPoints += stats.total_points;
 
-            // 3. Team Aggregation
             if(meta.teamId && teamPerf[meta.teamId]) {
                 const t = teamPerf[meta.teamId];
-                t.goals += stats.goals_scored;
-                t.assists += stats.assists;
-                t.xg += parseFloat(stats.expected_goals || 0);
-                t.total_minutes += stats.minutes;
-                
-                // Conceded: Sum from Goalkeepers (Pos 1) only to avoid duplicates
-                if(pos === 1) {
-                    t.conceded += stats.goals_conceded;
-                }
-
-                // Best Defense Logic: Sum Defcon + Bonus for GK (1) and DEF (2)
-                if(pos <= 2) {
-                    t.defScore += (defPts + stats.bonus);
-                }
+                t.goals += stats.goals_scored; t.assists += stats.assists; t.xg += parseFloat(stats.expected_goals || 0); t.total_minutes += stats.minutes;
+                if(pos === 1) t.conceded += stats.goals_conceded;
+                if(pos <= 2) t.defScore += (defPts + stats.bonus);
             }
-
-            return {
-                ...meta,
-                points: stats.total_points,
-                goals: stats.goals_scored,
-                minutes: stats.minutes,
-                transfers_in: meta.transfers_in,
-                transfers_out: meta.transfers_out,
-            };
+            return { ...meta, gw_points: stats.total_points, gw_goals: stats.goals_scored, minutes: stats.minutes, transfers_in: meta.transfers_in, transfers_out: meta.transfers_out };
         });
 
-        // 4. Calculate Team Winners
         const teamsArray = Object.values(teamPerf);
-        
-        // Clean Sheet Logic: Team played minutes AND Goalkeeper conceded 0
-        teamsArray.forEach(t => {
-            if(t.total_minutes > 0 && t.conceded === 0) {
-                t.clean_sheet = true;
-            }
-        });
-
-        // Total League Clean Sheets
+        teamsArray.forEach(t => { if(t.total_minutes > 0 && t.conceded === 0) t.clean_sheet = true; });
         const totalCleanSheets = teamsArray.filter(t => t.clean_sheet).length;
-
-        // Best Attack: Goals + Assists
         const bestAttack = teamsArray.sort((a,b) => (b.goals + b.assists) - (a.goals + a.assists))[0];
-        
-        // Best Defense: Defcon + Bonus
         const bestDefense = teamsArray.sort((a,b) => b.defScore - a.defScore)[0];
 
-        // 5. Sort Player Lists
         const mostIn = [...allPlayers].sort((a, b) => b.transfers_in - a.transfers_in).slice(0, 5);
         const mostOut = [...allPlayers].sort((a, b) => b.transfers_out - a.transfers_out).slice(0, 5);
-        
-        // Ownership Logic: MUST have played (minutes > 0)
-        const winnersLowOwn = [...allPlayers].filter(p => p.minutes > 0 && p.selected_by < 10).sort((a,b) => b.points - a.points).slice(0, 3);
-        const dudsHighOwn = [...allPlayers].filter(p => p.minutes > 0 && p.selected_by > 15).sort((a,b) => a.points - b.points).slice(0, 3);
+        const winnersLowOwn = [...allPlayers].filter(p => p.minutes > 0 && p.selected_by < 10).sort((a,b) => b.gw_points - a.gw_points).slice(0, 3);
+        const dudsHighOwn = [...allPlayers].filter(p => p.minutes > 0 && p.selected_by > 15).sort((a,b) => a.gw_points - b.gw_points).slice(0, 3);
+        const scatterData = teamsArray.map(t => ({ name: t.short, full_name: t.name, x: parseFloat(t.xg.toFixed(2)), y: t.goals, z: 1 }));
 
-        // 6. Scatter Data (TEAM Based)
-        const scatterData = teamsArray.map(t => ({
-            name: t.short,
-            full_name: t.name,
-            x: parseFloat(t.xg.toFixed(2)),
-            y: t.goals,
-            z: 1 // Bubble size uniform
+        setGwGlobalStats({ summary: { totalGoals, totalAssists, totalCleanSheets, totalRedCards, totalPoints }, bestAttack, bestDefense, mostIn, mostOut, winnersLowOwn, dudsHighOwn, scatterData });
+
+        // --- L5 ANALYSIS ---
+        const getCandidates = (posId) => [...allPlayers].filter(p => p.pos === posId).sort((a,b) => b.total_points - a.total_points).slice(0, 30);
+        const candidates = [...getCandidates(2), ...getCandidates(3), ...getCandidates(4)];
+        const l5Data = await Promise.all(candidates.map(async (p) => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/element-summary/${p.id}`);
+                const data = await res.json();
+                const history = data.history || [];
+                const last5 = history.slice(-5);
+                const l5_points = last5.reduce((sum, h) => sum + h.total_points, 0);
+                const l5_ga = last5.reduce((sum, h) => sum + h.goals_scored + h.assists, 0);
+                const usageVal = p.pos === 2 ? last5.reduce((sum, h) => sum + parseFloat(h.influence), 0) : last5.reduce((sum, h) => sum + parseFloat(h.expected_goal_involvement || 0), 0);
+                return { ...p, l5_points, l5_ga, usage: usageVal, last_gw_pts: history[history.length-1]?.total_points || 0 };
+            } catch (e) { return null; }
         }));
+        const validL5 = l5Data.filter(x => x !== null);
+        const categorize = (posId) => {
+            const pool = validL5.filter(p => p.pos === posId);
+            if (!pool.length) return { elite: [], clinical: [], volume: [] };
+            const avgUsage = pool.reduce((s,p) => s + p.usage, 0) / pool.length;
+            const avgPts = pool.reduce((s,p) => s + p.l5_points, 0) / pool.length;
+            return {
+                elite: pool.filter(p => p.usage >= avgUsage && p.l5_points >= avgPts).sort((a,b) => b.l5_points - a.l5_points).slice(0, 10),
+                clinical: pool.filter(p => p.usage < avgUsage && p.l5_points >= avgPts).sort((a,b) => b.l5_points - a.l5_points).slice(0, 10),
+                volume: pool.filter(p => p.usage >= avgUsage && p.l5_points < avgPts).sort((a,b) => b.usage - a.usage).slice(0, 10)
+            };
+        };
+        setL5Stats({ def: categorize(2), mid: categorize(3), fwd: categorize(4) });
 
-        setGwGlobalStats({
-            summary: { totalGoals, totalAssists, totalCleanSheets, totalRedCards, totalPoints },
-            bestAttack,
-            bestDefense,
-            mostIn,
-            mostOut,
-            winnersLowOwn,
-            dudsHighOwn,
-            scatterData
-        });
-
-        // --- EXISTING LEAGUE LOGIC ---
+        // --- LEAGUE DATA ---
         const standingsRes = await fetch(`${API_BASE_URL}/api/league-standings`);
         const sData = await standingsRes.json();
         setLeagueName(sData?.league?.name || "League");
@@ -192,7 +136,6 @@ function App() {
           const history = await histRes.json();
           const chips = history?.chips || [];
           const activeChip = chips.find(c => c.event === activeGW)?.name || 'None';
-
           try {
             const tRes = await fetch(`${API_BASE_URL}/api/manager-transfers/${m.entry}`);
             const tList = await tRes.json();
@@ -204,7 +147,6 @@ function App() {
               });
             }
           } catch (e) {}
-
           const pRes = await fetch(`${API_BASE_URL}/api/manager-picks/${m.entry}/${activeGW}`);
           const pData = await pRes.json();
           const picks = pData?.picks || [];
@@ -212,7 +154,6 @@ function App() {
           const bench = picks.slice(11);
           const left = s11.filter(p => liveEl.find(el => el.id === p.element)?.stats?.minutes === 0).length;
           const bPts = bench.reduce((sum, p) => sum + (liveEl.find(el => el.id === p.element)?.stats?.total_points || 0), 0);
-          
           const ppmStats = s11.map(p => {
             const live = liveEl.find(el => el.id === p.element)?.stats || {};
             const player = pMap[p.element];
@@ -222,12 +163,9 @@ function App() {
              const live = liveEl.find(el => el.id === pick.element)?.stats || {};
              if (pMap[pick.element]) {
                const current = leaguePlayerPool.get(pick.element);
-               if (!current || live.total_points > current.gwPoints) {
-                 leaguePlayerPool.set(pick.element, { ...pMap[pick.element], gwPoints: live.total_points || 0 });
-               }
+               if (!current || live.total_points > current.gwPoints) { leaguePlayerPool.set(pick.element, { ...pMap[pick.element], gwPoints: live.total_points || 0 }); }
              }
           });
-
           const stats = s11.reduce((acc, p) => {
             const s = liveEl.find(el => el.id === p.element)?.stats || {};
             const playerInfo = pMap[p.element] || {};
@@ -242,22 +180,11 @@ function App() {
             if (s.saves) defPts += Math.floor(s.saves / 3);
             if (s.penalties_saved) defPts += (s.penalties_saved * 5);
             if (s.own_goals) defPts += (s.own_goals * -2);
-
             return {
-              xg: acc.xg + parseFloat(s.expected_goals || 0),
-              goals: acc.goals + (s.goals_scored || 0),
-              xa: acc.xa + parseFloat(s.expected_assists || 0),
-              assists: acc.assists + (s.assists || 0),
-              ptsGoals: acc.ptsGoals + goalPts,
-              ptsAssists: acc.ptsAssists + assistPts,
-              ptsBonus: acc.ptsBonus + (s.bonus || 0),
-              ptsCards: acc.ptsCards + cardPts,
-              ptsDefcon: acc.ptsDefcon + defPts,
-              yellows: acc.yellows + (s.yellow_cards || 0),
-              reds: acc.reds + (s.red_cards || 0)
+              xg: acc.xg + parseFloat(s.expected_goals || 0), goals: acc.goals + (s.goals_scored || 0), xa: acc.xa + parseFloat(s.expected_assists || 0), assists: acc.assists + (s.assists || 0),
+              ptsGoals: acc.ptsGoals + goalPts, ptsAssists: acc.ptsAssists + assistPts, ptsBonus: acc.ptsBonus + (s.bonus || 0), ptsCards: acc.ptsCards + cardPts, ptsDefcon: acc.ptsDefcon + defPts
             };
-          }, { xg: 0, goals: 0, xa: 0, assists: 0, ptsGoals: 0, ptsAssists: 0, ptsBonus: 0, ptsCards: 0, ptsDefcon: 0, yellows: 0, reds: 0 });
-
+          }, { xg: 0, goals: 0, xa: 0, assists: 0, ptsGoals: 0, ptsAssists: 0, ptsBonus: 0, ptsCards: 0, ptsDefcon: 0 });
           const rawHistory = Array.isArray(history) ? history : (history.current || []);
           return { ...m, ...stats, leftCount: left, benchPoints: bPts, activeChip, bestGWValue: ppmStats.sort((a,b)=>b.gwPPM-a.gwPPM)[0], worstGWValue: ppmStats.sort((a,b)=>a.gwPPM-b.gwPPM)[0], rawHistory: rawHistory };
         }));
@@ -313,14 +240,40 @@ function App() {
             <PlayerPhoto photo={p.photo} />
             <div className="player-meta"><span className="meta-name">{p.name}</span><span className="meta-team">{p.team} - {p.pos === 1 ? 'GK' : p.pos === 2 ? 'DEF' : p.pos === 3 ? 'MID' : 'FWD'}</span></div>
         </div>
-        <div className="stat-box"><div className="stat-val">{p.points}</div><div className="stat-label">PTS</div></div>
+        <div className="stat-box"><div className="stat-val">{p.gw_points}</div><div className="stat-label">PTS</div></div>
         <div className="stat-box"><div className="stat-val">{p.selected_by}%</div><div className="stat-label">OWN</div></div>
-        {getResultBadge(p.points)}
+        {getResultBadge(p.gw_points)}
     </div>
   ));
 
+  const renderL5Table = (title, subtitle, players, usageLabel) => (
+      <div className="analysis-card">
+          <div className="card-header-strip"><span>{title}</span><span className="header-sub">{subtitle}</span></div>
+          <table className="compact-table">
+              <thead><tr><th>PLAYER</th><th>{usageLabel}</th><th>G+A</th><th>GW</th><th>L5</th></tr></thead>
+              <tbody>{players.map(p => (<tr key={p.id}>
+                  <td style={{textAlign:'left'}}><div style={{display:'flex', alignItems:'center', gap:'8px'}}><PlayerPhoto photo={p.photo} /><div style={{display:'flex', flexDirection:'column', lineHeight:'1'}}><span style={{fontWeight:'700', fontSize:'0.7rem'}}>{p.name}</span><span style={{color:'#888', fontSize:'0.6rem'}}>{p.team}</span></div></div></td>
+                  <td><span className="usage-val">{p.usage.toFixed(1)}</span></td><td><span className="ga-val">{p.l5_ga}</span></td>
+                  <td><span className="gw-val" style={{color: p.last_gw_pts >= 6 ? '#00994d' : '#000'}}>{p.last_gw_pts}</span></td>
+                  <td><span className="l5-val">{p.l5_points}</span></td>
+              </tr>))}</tbody>
+          </table>
+      </div>
+  );
+
+  const renderPosSection = (posName, stats, usageLabel) => (
+      <div className="analysis-section">
+          <div className="pos-header">{posName} ANALYSIS (Last 5 GW)</div>
+          <div className="analysis-grid">
+             {renderL5Table("ELITE (Keep)", "High Usage + High Points", stats.elite, usageLabel)}
+             {renderL5Table("CLINICAL (Sell Watch)", "Low Usage + High Points", stats.clinical, usageLabel)}
+             {renderL5Table("WASTEFUL/UNLUCKY (Buy?)", "High Usage + Low Points", stats.volume, usageLabel)}
+          </div>
+      </div>
+  );
+
   if (loading) return <div className="loading-screen">INITIALIZING FPL TRACKER...</div>;
-  if (error) return <div className="loading-screen" style={{color: '#ff005a'}}>Error: {error}</div>;
+  if (error) return <div className="loading-screen" style={{color: '#d9004c'}}>Error: {error}</div>;
 
   return (
     <div className="app-container">
@@ -335,6 +288,7 @@ function App() {
 
       {activeTab === 'league' && (
         <>
+            {/* 1. STANDINGS */}
             <section className="dashboard-section">
                 <h3 className="section-title">League Standings</h3>
                 <div className="table-wrapper">
@@ -344,62 +298,59 @@ function App() {
                 </table>
                 </div>
             </section>
-            <section className="dashboard-section"><h3 className="section-title">GW Points Breakdown</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-stat">G</th><th className="col-stat">A</th><th className="col-stat">B</th><th className="col-stat">DC</th><th className="col-stat">Cards</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td className="val-pos">{m.ptsGoals}</td><td className="val-pos">{m.ptsAssists}</td><td className="val-neutral">{m.ptsBonus}</td><td style={{color: m.ptsDefcon >= 0 ? '#00ff87' : '#ff005a'}}>{m.ptsDefcon}</td><td className="val-neg">{m.ptsCards}</td></tr>))}</tbody></table></div></section>
-            <section className="dashboard-section"><h3 className="section-title">Transfer Impact</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>IN</th><th className="col-wide-stat" style={{textAlign: 'center'}}>OUT</th><th className="col-stat" style={{textAlign: 'center'}}>Diff</th></tr></thead><tbody>{transfers.slice(0, 5).map((t, i) => (<tr key={i}><td style={{textAlign: 'center', paddingLeft: 0}}><div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}><span style={{color: '#ffffff', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span><span style={{color: '#a0a0a0', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerIn?.name}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerOut?.name}</span></div></td><td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td></tr>))}</tbody></table></div></section>
-            <section className="dashboard-section" style={{background: 'transparent', border: 'none'}}><h3 className="section-title" style={{borderRadius: '8px 8px 0 0'}}>Rank History</h3><div className="chart-wrapper"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 40 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" /><XAxis dataKey="gameweek" tick={{fontSize: 12, fill: '#a0a0a0'}} stroke="#555" dy={10} /><YAxis reversed={true} domain={[1, leagueSize]} ticks={Array.from({length: leagueSize}, (_, i) => i + 1)} tick={{fontSize: 12, fill: '#a0a0a0'}} width={30} stroke="#555" /><Tooltip contentStyle={{ backgroundColor: '#141414', borderColor: '#333', color: '#fff' }} /><Legend align="center" verticalAlign="bottom" iconType="circle" iconSize={10} wrapperStyle={{ paddingTop: '10px', fontSize: '11px', width: '100%', left: 0, bottom: 0, color: '#a0a0a0' }} />{Object.keys(chartData[0] || {}).filter(k => k !== 'gameweek').map((name, i) => (<Line key={name} dataKey={name} stroke={`hsl(${(i * 137) % 360}, 50%, 60%)`} strokeWidth={3} dot={{ r: 4 }} />))}</LineChart></ResponsiveContainer></div></section>
-            <section className="dashboard-section"><h3 className="section-title">GW Efficiency (PPM)</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW MVP</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW LVP</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td style={{textAlign: 'center', paddingLeft: 0}}>{renderTeamCell(m.entry_name, m.player_name)}</td><td style={{textAlign: 'center'}}>{m.bestGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}><PlayerPhoto photo={m.bestGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.bestGWValue.name}</span><span className="val-pos">{m.bestGWValue.gwPPM}</span></div>) : '-'}</td><td style={{textAlign: 'center'}}>{m.worstGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}><PlayerPhoto photo={m.worstGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.worstGWValue.name}</span><span className="val-neg">{m.worstGWValue.gwPPM}</span></div>) : '-'}</td></tr>))}</tbody></table></div></section>
+
+            {/* 2. RANK HISTORY (Moved Up) */}
+            <section className="dashboard-section" style={{background: 'transparent', border: 'none'}}><h3 className="section-title" style={{borderRadius: '4px 4px 0 0'}}>Rank History</h3><div className="chart-wrapper"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 40 }}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" /><XAxis dataKey="gameweek" tick={{fontSize: 12, fill: '#666'}} stroke="#ccc" dy={10} /><YAxis reversed={true} domain={[1, leagueSize]} ticks={Array.from({length: leagueSize}, (_, i) => i + 1)} tick={{fontSize: 12, fill: '#666'}} width={30} stroke="#ccc" /><Tooltip contentStyle={{ backgroundColor: '#141414', borderColor: '#333', color: '#fff' }} /><Legend align="center" verticalAlign="bottom" iconType="circle" iconSize={10} wrapperStyle={{ paddingTop: '10px', fontSize: '11px', width: '100%', left: 0, bottom: 0, color: '#666' }} />{Object.keys(chartData[0] || {}).filter(k => k !== 'gameweek').map((name, i) => (<Line key={name} dataKey={name} stroke={`hsl(${(i * 137) % 360}, 60%, 40%)`} strokeWidth={3} dot={{ r: 4 }} />))}</LineChart></ResponsiveContainer></div></section>
+
+            {/* 3. POINTS BREAKDOWN */}
+            <section className="dashboard-section"><h3 className="section-title">GW Points Breakdown</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team text-left">Team</th><th className="col-stat">G</th><th className="col-stat">A</th><th className="col-stat">B</th><th className="col-stat">DC</th><th className="col-stat">Cards</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td className="text-left">{renderTeamCell(m.entry_name, m.player_name)}</td><td className="val-pos">{m.ptsGoals}</td><td className="val-pos">{m.ptsAssists}</td><td className="val-neutral">{m.ptsBonus}</td><td style={{color: m.ptsDefcon >= 0 ? '#00994d' : '#d9004c'}}>{m.ptsDefcon}</td><td className="val-neg">{m.ptsCards}</td></tr>))}</tbody></table></div></section>
+
+            {/* 4. TEAM OF THE WEEK (Moved Here) */}
             <section className="dashboard-section"><h3 className="section-title">League Team of the Week</h3><div className="totw-pitch">{[1, 2, 3, 4].map(row => (<div key={row} className="pitch-row">{totwRows[row].map(p => (<div key={p.id} className="player-card"><div className="points-badge">{p.displayPoints}</div><PlayerPhoto photo={p.photo} /><div className="player-name">{p.name}</div></div>))}</div>))}</div></section>
+
+            {/* 5. TRANSFER IMPACT */}
+            <section className="dashboard-section"><h3 className="section-title">Transfer Impact</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>IN</th><th className="col-wide-stat" style={{textAlign: 'center'}}>OUT</th><th className="col-stat" style={{textAlign: 'center'}}>Diff</th></tr></thead><tbody>{transfers.slice(0, 5).map((t, i) => (<tr key={i}><td style={{textAlign: 'center', paddingLeft: 0}}><div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}><span style={{color: '#000', fontWeight: '700', fontSize: '0.75rem'}}>{t.teamName}</span><span style={{color: '#666', fontSize: '0.65rem', marginTop: '2px'}}>{t.manager}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center'}}><PlayerPhoto photo={t.playerIn?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerIn?.name}</span></div></td><td><div style={{display:'flex', flexDirection:'column', alignItems:'center', opacity:0.6}}><PlayerPhoto photo={t.playerOut?.photo} width="32px" /><span style={{fontSize:'0.65rem'}}>{t.playerOut?.name}</span></div></td><td className={t.diff >= 0 ? 'val-pos' : 'val-neg'}>{t.diff > 0 ? `+${t.diff}` : t.diff}</td></tr>))}</tbody></table></div></section>
+            
+            {/* 6. GW EFFICIENCY */}
+            <section className="dashboard-section"><h3 className="section-title">GW Efficiency (PPM)</h3><div className="table-wrapper"><table className="data-table"><thead><tr><th className="col-team" style={{textAlign: 'center'}}>Team</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW MVP</th><th className="col-wide-stat" style={{textAlign: 'center'}}>GW LVP</th></tr></thead><tbody>{standingsData.map(m => (<tr key={m.entry}><td style={{textAlign: 'center', paddingLeft: 0}}>{renderTeamCell(m.entry_name, m.player_name)}</td><td style={{textAlign: 'center'}}>{m.bestGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px'}}><PlayerPhoto photo={m.bestGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.bestGWValue.name}</span><span className="val-pos">{m.bestGWValue.gwPPM}</span></div>) : '-'}</td><td style={{textAlign: 'center'}}>{m.worstGWValue ? (<div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'2px', opacity:0.7}}><PlayerPhoto photo={m.worstGWValue.photo} width="32px" /><span style={{fontSize:'0.65rem', fontWeight:'600'}}>{m.worstGWValue.name}</span><span className="val-neg">{m.worstGWValue.gwPPM}</span></div>) : '-'}</td></tr>))}</tbody></table></div></section>
         </>
       )}
 
       {activeTab === 'gw' && gwGlobalStats && (
         <>
-           {/* 1. GW SUMMARY BANNER */}
            <div className="gw-summary-banner">
               <div className="summary-card"><div className="summary-value">{gwGlobalStats.summary.totalGoals}</div><div className="summary-sub">Goals</div></div>
               <div className="summary-card"><div className="summary-value">{gwGlobalStats.summary.totalAssists}</div><div className="summary-sub">Assists</div></div>
               <div className="summary-card"><div className="summary-value">{gwGlobalStats.summary.totalCleanSheets}</div><div className="summary-sub">Clean Sheets</div></div>
-              <div className="summary-card"><div className="summary-value" style={{color: '#ff005a'}}>{gwGlobalStats.summary.totalRedCards}</div><div className="summary-sub">Red Cards</div></div>
+              <div className="summary-card"><div className="summary-value" style={{color: '#d9004c'}}>{gwGlobalStats.summary.totalRedCards}</div><div className="summary-sub">Red Cards</div></div>
               <div className="summary-card"><div className="summary-value">{gwGlobalStats.summary.totalPoints.toLocaleString()}</div><div className="summary-sub">Total Points</div></div>
            </div>
 
-           {/* 2. TEAM OF THE WEEK (Best Attack/Def) */}
            <div className="transfer-market-grid">
-               <div className="summary-card">
-                   <div className="summary-sub" style={{color: '#00ff87'}}>BEST ATTACK</div>
-                   <div className="summary-value">{gwGlobalStats.bestAttack.name}</div>
-                   <span className="summary-badge badge-green">{gwGlobalStats.bestAttack.goals} Goals, {gwGlobalStats.bestAttack.assists} Assists</span>
-               </div>
-               <div className="summary-card">
-                   <div className="summary-sub" style={{color: '#a0a0a0'}}>BEST DEFENSE</div>
-                   <div className="summary-value">{gwGlobalStats.bestDefense.name}</div>
-                   <span className="summary-badge" style={{background: '#333', color: '#fff'}}>Score: {gwGlobalStats.bestDefense.defScore} (Defcon+Bonus)</span>
-               </div>
+               <div className="summary-card"><div className="summary-sub" style={{color: '#00994d'}}>BEST ATTACK</div><div className="summary-value">{gwGlobalStats.bestAttack.name}</div><span className="summary-badge badge-green">{gwGlobalStats.bestAttack.goals} Goals, {gwGlobalStats.bestAttack.assists} Assists</span></div>
+               <div className="summary-card"><div className="summary-sub" style={{color: '#666'}}>BEST DEFENSE</div><div className="summary-value">{gwGlobalStats.bestDefense.name}</div><span className="summary-badge" style={{background: '#eee', color: '#333'}}>Score: {gwGlobalStats.bestDefense.defScore} (Defcon+Bonus)</span></div>
            </div>
 
-           {/* 3. TRANSFER MARKET */}
            <h3 className="section-title">Transfer Market (Volume)</h3>
            <div className="transfer-market-grid">
                <div><div className="market-col-header market-in">MOST IN</div>{renderPlayerList(gwGlobalStats.mostIn)}</div>
                <div><div className="market-col-header market-out">MOST OUT</div>{renderPlayerList(gwGlobalStats.mostOut)}</div>
            </div>
 
-           {/* 4. OWNERSHIP GEMS */}
            <h3 className="section-title">Ownership Impact (Played Only)</h3>
            <div className="transfer-market-grid">
-               <div><div className="market-col-header" style={{borderColor: '#00ff87', color: '#00ff87'}}>LOW OWNERSHIP WINNERS (&lt;10%)</div>{renderPlayerList(gwGlobalStats.winnersLowOwn)}</div>
-               <div><div className="market-col-header" style={{borderColor: '#ff005a', color: '#ff005a'}}>HIGH OWNERSHIP DUDS (&gt;15%)</div>{renderPlayerList(gwGlobalStats.dudsHighOwn)}</div>
+               <div><div className="market-col-header" style={{borderColor: '#00994d', color: '#00994d'}}>LOW OWNERSHIP WINNERS (&lt;10%)</div>{renderPlayerList(gwGlobalStats.winnersLowOwn)}</div>
+               <div><div className="market-col-header" style={{borderColor: '#d9004c', color: '#d9004c'}}>HIGH OWNERSHIP DUDS (&gt;15%)</div>{renderPlayerList(gwGlobalStats.dudsHighOwn)}</div>
            </div>
 
-           {/* 5. TEAM CLINICALITY SCATTER CHART */}
            <h3 className="section-title">Team Clinicality (Goals vs xG)</h3>
            <div className="scatter-container">
                <div className="chart-annotation note-clinical">CLINICAL<br/>(Overperforming)</div>
                <div className="chart-annotation note-wasteful">WASTEFUL<br/>(Underperforming)</div>
                <ResponsiveContainer width="100%" height="100%">
                    <ScatterChart margin={{ top: 20, right: 10, bottom: 20, left: 0 }}>
-                       <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                       <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 7, y: 7 }]} stroke="#666" strokeDasharray="5 5" strokeWidth={1}/>
+                       <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                       <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 7, y: 7 }]} stroke="#999" strokeDasharray="5 5" strokeWidth={1}/>
                        <XAxis type="number" dataKey="x" name="xG" domain={[0, 'auto']} tickCount={8} stroke="#888" label={{ value: 'Expected Goals (xG)', position: 'insideBottom', offset: -10, fill: '#888', fontSize: 12 }} />
                        <YAxis type="number" dataKey="y" name="Goals" domain={[0, 'auto']} tickCount={8} width={30} stroke="#888" label={{ value: 'Actual Goals', angle: -90, position: 'insideLeft', offset: 10, fill: '#888', fontSize: 12 }} />
                        <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
@@ -418,13 +369,21 @@ function App() {
                        }} />
                        <Scatter name="Teams" data={gwGlobalStats.scatterData} fill="#8884d8">
                             {gwGlobalStats.scatterData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.y > entry.x ? '#00ff87' : '#ff005a'} />
+                                <Cell key={`cell-${index}`} fill={entry.y > entry.x ? '#00994d' : '#d9004c'} />
                             ))}
-                            <LabelList dataKey="name" position="top" offset={5} style={{ fill: '#fff', fontSize: '10px', fontWeight:'700' }} />
+                            <LabelList dataKey="name" position="top" offset={5} style={{ fill: '#000', fontSize: '10px', fontWeight:'700' }} />
                        </Scatter>
                    </ScatterChart>
                </ResponsiveContainer>
            </div>
+           
+           {l5Stats && (
+             <>
+               {renderPosSection("ATTACKERS", l5Stats.fwd, "xGI")}
+               {renderPosSection("MIDFIELDERS", l5Stats.mid, "xGI")}
+               {renderPosSection("DEFENDERS", l5Stats.def, "INF")}
+             </>
+           )}
         </>
       )}
     </div>
